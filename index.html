@@ -91,6 +91,8 @@
     .missing-ing-parsed { font-size:12px; color:var(--muted); margin-bottom:10px; }
     .instructions-display { font-size:13px; line-height:1.8; color:var(--text); white-space:pre-wrap; }
     .instructions-empty { font-size:13px; color:var(--muted); font-style:italic; }
+    .toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:#2C2C2A; color:#fff; font-size:13px; padding:12px 18px; border-radius:12px; max-width:min(480px,90vw); text-align:center; line-height:1.5; z-index:200; opacity:0; transition:opacity 0.2s; pointer-events:none; }
+    .toast.show { opacity:1; }
     .section-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
     .section-row .section-title { margin-bottom:0; }
     .modal-tabs { display:flex; gap:0; margin-bottom:1.1rem; border-bottom:1.5px solid var(--border); }
@@ -374,9 +376,20 @@
   </div>
 </div>
 
+<div id="toast" class="toast"></div>
+
 <script>
   let state = JSON.parse(localStorage.getItem('bakebudget_v1')||'null')||{ingredients:[],recipes:[],activeRecipeId:null};
   function save(){localStorage.setItem('bakebudget_v1',JSON.stringify(state));}
+
+  let _toastTimer=null;
+  function showToast(msg, duration=4000){
+    const t=document.getElementById('toast');
+    t.textContent=msg;
+    t.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer=setTimeout(()=>t.classList.remove('show'), duration);
+  }
 
   function switchTab(tabId,btn){
     document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
@@ -625,6 +638,12 @@
     save(); closeRecipeDetail();
   }
 
+  const UNIT_FAMILY={
+    g:'weight', kg:'weight', oz:'weight', lb:'weight',
+    ml:'volume', L:'volume', tsp:'volume', tbsp:'volume', cup:'volume',
+    count:'count'
+  };
+
   const UNIT_TO_BASE={
     g:1, kg:1000, oz:28.3495, lb:453.592,
     ml:1, L:1000,
@@ -636,7 +655,7 @@
     if(fromUnit===toUnit) return amount;
     const fromBase=UNIT_TO_BASE[fromUnit];
     const toBase=UNIT_TO_BASE[toUnit];
-    if(!fromBase||!toBase) return amount; // incompatible unit families — return as-is
+    if(!fromBase||!toBase) return amount;
     return amount*(fromBase/toBase);
   }
 
@@ -883,9 +902,14 @@
     if(isNaN(amount)||amount<=0){alert('Please enter a valid amount.');return;}
     recipe.ingredients[idx].amount=amount;
     recipe.ingredients[idx].unit=unit;
-    // for ghost ingredients, keep ghostUnit in sync too
     if(!recipe.ingredients[idx].ingId) recipe.ingredients[idx].ghostUnit=unit;
+    // check family mismatch before closing
+    const linkedIng=state.ingredients.find(x=>x.id===recipe.ingredients[idx].ingId);
+    const mismatch=linkedIng&&UNIT_FAMILY[unit]&&UNIT_FAMILY[linkedIng.unit]&&UNIT_FAMILY[unit]!==UNIT_FAMILY[linkedIng.unit];
     save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
+    if(mismatch){
+      showToast(`Unit mismatch: pantry has "${linkedIng.name}" in ${linkedIng.unit} (${UNIT_FAMILY[linkedIng.unit]}) but you entered ${unit} (${UNIT_FAMILY[unit]}). Cost can't convert between these — update the pantry unit or use a compatible one.`, 7000);
+    }
   }
 
   function saveRiLinkEdit(){

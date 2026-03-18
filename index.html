@@ -244,12 +244,22 @@
     </div>
     <div class="form-row" style="margin-bottom:12px">
       <div class="form-group">
-        <label>Servings / yield</label>
-        <input type="number" id="edit-recipe-servings" min="1" style="width:110px">
+        <label>Servings</label>
+        <input type="number" id="edit-recipe-servings" min="1" style="width:100px">
       </div>
-      <div class="form-group">
+      <div class="form-group" style="flex:2;min-width:140px">
+        <label>Size / yield <em>(optional)</em></label>
+        <input type="text" id="edit-recipe-yield" placeholder="e.g. 8 inch cake, 2 loaves" style="width:100%">
+      </div>
+    </div>
+    <div class="form-row" style="margin-bottom:4px">
+      <div class="form-group" style="flex:1;min-width:140px">
         <label>Baking temperature <em>(optional)</em></label>
-        <input type="text" id="edit-recipe-temp" placeholder="e.g. 350°F / 175°C" style="width:200px">
+        <input type="text" id="edit-recipe-temp" placeholder="e.g. 350°F / 175°C" style="width:100%">
+      </div>
+      <div class="form-group" style="flex:1;min-width:120px">
+        <label>Cook time <em>(optional)</em></label>
+        <input type="text" id="edit-recipe-time" placeholder="e.g. 25–30 min" style="width:100%">
       </div>
     </div>
     <div class="modal-actions">
@@ -267,9 +277,25 @@
       <label>Recipe name</label>
       <input type="text" id="new-recipe-name" placeholder="e.g. Brown butter cookies" style="width:100%">
     </div>
-    <div class="form-group">
-      <label>Servings / yield</label>
-      <input type="number" id="new-recipe-servings" placeholder="12" min="1" style="width:110px">
+    <div class="form-row" style="margin-bottom:12px">
+      <div class="form-group">
+        <label>Servings</label>
+        <input type="number" id="new-recipe-servings" placeholder="16" min="1" style="width:100px">
+      </div>
+      <div class="form-group" style="flex:2;min-width:140px">
+        <label>Size / yield <em>(optional)</em></label>
+        <input type="text" id="new-recipe-yield" placeholder="e.g. 8 inch cake, 2 loaves" style="width:100%">
+      </div>
+    </div>
+    <div class="form-row" style="margin-bottom:4px">
+      <div class="form-group" style="flex:1;min-width:140px">
+        <label>Baking temperature <em>(optional)</em></label>
+        <input type="text" id="new-recipe-temp" placeholder="e.g. 350°F / 175°C" style="width:100%">
+      </div>
+      <div class="form-group" style="flex:1;min-width:120px">
+        <label>Cook time <em>(optional)</em></label>
+        <input type="text" id="new-recipe-time" placeholder="e.g. 25–30 min" style="width:100%">
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('recipe-modal')">Cancel</button>
@@ -644,8 +670,11 @@
   function createRecipe(){
     const name=document.getElementById('new-recipe-name').value.trim();
     const servings=parseInt(document.getElementById('new-recipe-servings').value);
+    const yieldDesc=document.getElementById('new-recipe-yield').value.trim();
+    const temp=document.getElementById('new-recipe-temp').value.trim();
+    const cookTime=document.getElementById('new-recipe-time').value.trim();
     if(!name||isNaN(servings)||servings<1){alert('Please enter a recipe name and number of servings.');return;}
-    const recipe={id:Date.now(),name,servings,ingredients:[],instructions:''};
+    const recipe={id:Date.now(),name,servings,yieldDesc,temp,cookTime,ingredients:[],instructions:''};
     state.recipes.push(recipe); save(); closeModal('recipe-modal'); renderRecipeList(); openRecipeDetail(recipe.id);
   }
 
@@ -724,10 +753,16 @@
     const totalCost=calcRecipeCost(recipe);
     const perServing=recipe.servings>0?totalCost/recipe.servings:0;
 
+    const metaParts=[];
+    if(recipe.servings) metaParts.push(`${recipe.servings} serving${recipe.servings!==1?'s':''}`);
+    if(recipe.yieldDesc) metaParts.push(escHtml(recipe.yieldDesc));
+    if(recipe.temp) metaParts.push(escHtml(recipe.temp));
+    if(recipe.cookTime) metaParts.push(escHtml(recipe.cookTime));
+
     document.getElementById('recipe-detail-header').innerHTML=`
       <div>
         <div style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:700">${escHtml(recipe.name)}</div>
-        <div style="font-size:13px;color:var(--muted)">${recipe.servings} serving${recipe.servings!==1?'s':''}${recipe.temp?' &middot; '+escHtml(recipe.temp):''}</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:3px">${metaParts.join(' &middot; ')}</div>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-edit" onclick="openEditRecipeModal(${recipe.id})">Edit</button>
@@ -848,7 +883,9 @@
     document.getElementById('edit-recipe-id').value=recipe.id;
     document.getElementById('edit-recipe-name').value=recipe.name;
     document.getElementById('edit-recipe-servings').value=recipe.servings;
+    document.getElementById('edit-recipe-yield').value=recipe.yieldDesc||'';
     document.getElementById('edit-recipe-temp').value=recipe.temp||'';
+    document.getElementById('edit-recipe-time').value=recipe.cookTime||'';
     openModal('edit-recipe-modal');
   }
 
@@ -856,11 +893,13 @@
     const id=parseFloat(document.getElementById('edit-recipe-id').value);
     const name=document.getElementById('edit-recipe-name').value.trim();
     const servings=parseInt(document.getElementById('edit-recipe-servings').value);
+    const yieldDesc=document.getElementById('edit-recipe-yield').value.trim();
     const temp=document.getElementById('edit-recipe-temp').value.trim();
+    const cookTime=document.getElementById('edit-recipe-time').value.trim();
     if(!name||isNaN(servings)||servings<1){alert('Please enter a name and number of servings.');return;}
     const recipe=state.recipes.find(r=>r.id===id);
     if(!recipe) return;
-    Object.assign(recipe,{name,servings,temp});
+    Object.assign(recipe,{name,servings,yieldDesc,temp,cookTime});
     save(); closeModal('edit-recipe-modal'); renderRecipeDetail(); renderRecipeList();
   }
 

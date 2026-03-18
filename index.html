@@ -70,11 +70,11 @@
     .cost-card .label { font-size:11px; color:var(--muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
     .cost-card .value { font-size:1.5rem; font-family:'Poppins',sans-serif; color:var(--text); font-weight:700; }
     .cost-card .sub { font-size:11px; color:var(--muted); margin-top:2px; }
-    .markup-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px; }
+    .markup-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:4px; }
     .markup-card { background:var(--green-light); border-radius:12px; padding:1rem; text-align:center; }
     .markup-card .mk-label { font-size:11px; color:var(--green-dark); font-weight:500; text-transform:uppercase; letter-spacing:0.4px; }
-    .markup-card .mk-val { font-size:1.3rem; font-family:'Poppins',sans-serif; color:var(--green-dark); margin-top:4px; font-weight:700; }
-    .markup-card .mk-note { font-size:10px; color:var(--muted); margin-top:3px; }
+    .markup-card .mk-val { font-size:1.2rem; font-family:'Poppins',sans-serif; color:var(--green-dark); margin-top:4px; font-weight:700; }
+    .markup-card .mk-note { font-size:10px; color:var(--muted); margin-top:3px; line-height:1.4; }
     .breakdown-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:7px 0; border-bottom:0.5px solid var(--border); }
     .breakdown-row:last-child { border-bottom:none; }
     .breakdown-pct { font-size:11px; color:var(--muted); margin-left:6px; }
@@ -174,8 +174,31 @@
         <div class="section-title">Cost summary</div>
         <div class="cost-cards" id="cost-summary"></div>
         <div class="divider"></div>
-        <div class="section-title">Retail price options</div>
-        <div class="markup-grid" id="markup-grid"></div>
+        <div class="section-row" style="cursor:pointer" onclick="togglePricing()">
+          <div class="section-title" style="margin-bottom:0">Pricing calculator</div>
+          <span id="pricing-toggle-icon" style="font-size:13px;color:var(--muted)">&#9654; Show</span>
+        </div>
+        <div id="pricing-panel" style="display:none;margin-top:12px">
+          <div class="form-row" style="margin-bottom:12px;flex-wrap:wrap;gap:10px">
+            <div class="form-group">
+              <label>Markup multiplier</label>
+              <input type="number" id="pricing-mult" placeholder="2.5" min="1" step="0.1" style="width:100px" oninput="renderPricing()">
+            </div>
+            <div class="form-group">
+              <label>Hours spent</label>
+              <input type="number" id="pricing-hours" placeholder="1.5" min="0" step="0.25" style="width:100px" oninput="renderPricing()">
+            </div>
+            <div class="form-group">
+              <label>Hourly rate ($)</label>
+              <input type="number" id="pricing-rate" placeholder="20" min="0" step="1" style="width:100px" oninput="renderPricing()">
+            </div>
+            <div class="form-group">
+              <label>Custom qty</label>
+              <input type="number" id="pricing-custom-qty" placeholder="24" min="1" step="1" style="width:100px" oninput="renderPricing()">
+            </div>
+          </div>
+          <div id="pricing-output"></div>
+        </div>
         <div class="divider"></div>
         <div class="section-row">
           <div class="section-title">Ingredient breakdown</div>
@@ -715,16 +738,6 @@
       <div class="cost-card"><div class="label">Total cost</div><div class="value">$${totalCost.toFixed(2)}</div></div>
       <div class="cost-card"><div class="label">Per serving</div><div class="value">$${perServing.toFixed(2)}</div><div class="sub">${recipe.servings} servings</div></div>`;
 
-    document.getElementById('markup-grid').innerHTML=[
-      {label:'Home baker',mult:1.5,note:'1.5× cost'},
-      {label:'Wholesale',mult:2.5,note:'2.5× cost'},
-      {label:'Retail',mult:3.5,note:'3.5× cost'}
-    ].map(m=>`<div class="markup-card">
-      <div class="mk-label">${m.label}</div>
-      <div class="mk-val">$${(totalCost*m.mult).toFixed(2)}</div>
-      <div class="mk-note">${m.note} &middot; $${(totalCost*m.mult/recipe.servings).toFixed(2)}/serving</div>
-    </div>`).join('');
-
     const breakdown=document.getElementById('breakdown-list');
     if(!recipe.ingredients.length){
       breakdown.innerHTML='<div class="empty" style="padding:0.75rem 0">No ingredients yet — add some below.</div>';
@@ -953,6 +966,47 @@
     // always restore the recipe-level unit — pantry unit should never overwrite it
     if(preservedUnit) ri.unit=preservedUnit;
     save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
+  }
+
+  function togglePricing(){
+    const panel=document.getElementById('pricing-panel');
+    const icon=document.getElementById('pricing-toggle-icon');
+    const open=panel.style.display==='none';
+    panel.style.display=open?'block':'none';
+    icon.innerHTML=open?'&#9660; Hide':'&#9654; Show';
+    if(open) renderPricing();
+  }
+
+  function renderPricing(){
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(!recipe) return;
+    const totalCost=calcRecipeCost(recipe);
+    const servings=recipe.servings||1;
+    const mult=parseFloat(document.getElementById('pricing-mult').value)||1;
+    const hours=parseFloat(document.getElementById('pricing-hours').value)||0;
+    const rate=parseFloat(document.getElementById('pricing-rate').value)||0;
+    const customQty=parseInt(document.getElementById('pricing-custom-qty').value)||0;
+    const labour=hours*rate;
+    const base=(totalCost*mult)+labour;
+    const perServing=base/servings;
+    const perDozen=perServing*12;
+    const cards=[
+      {label:'Per serving',val:perServing,note:`${servings} servings in batch`},
+      {label:'Per dozen',val:perDozen,note:'12 × per serving'},
+    ];
+    if(customQty>0) cards.push({label:`Per ${customQty}`,val:perServing*customQty,note:`${customQty} × per serving`});
+    const notesArr=[];
+    if(mult!==1) notesArr.push(`${mult}× markup`);
+    if(labour>0) notesArr.push(`$${labour.toFixed(2)} labour`);
+    document.getElementById('pricing-output').innerHTML=`
+      ${notesArr.length?`<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${notesArr.join(' + ')}</div>`:''}
+      <div class="markup-grid">
+        ${cards.map(c=>`<div class="markup-card">
+          <div class="mk-label">${c.label}</div>
+          <div class="mk-val">$${c.val.toFixed(2)}</div>
+          <div class="mk-note">${c.note}</div>
+        </div>`).join('')}
+      </div>`;
   }
 
   function escHtml(str){

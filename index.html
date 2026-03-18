@@ -431,7 +431,7 @@
     const price = ov ? ov.price : parseFloat(document.getElementById('ing-price').value);
     const qty   = ov ? ov.qty   : parseFloat(document.getElementById('ing-qty').value);
     const unit  = ov ? ov.unit  : document.getElementById('ing-unit').value;
-    const store = ov ? (ov.store||'') : capitalizeFirst(document.getElementById('ing-store').value.trim());
+    const store = ov ? (ov.store||'') : toTitleCase(document.getElementById('ing-store').value.trim());
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in name, store price, and package amount.');return null;}
     const ing={id:Date.now()+Math.random(),name,price,qty,unit,store,costPerUnit:price/qty};
     state.ingredients.push(ing); save();
@@ -485,7 +485,7 @@
     const price=parseFloat(document.getElementById('edit-ing-price').value);
     const qty=parseFloat(document.getElementById('edit-ing-qty').value);
     const unit=document.getElementById('edit-ing-unit').value;
-    const store=capitalizeFirst(document.getElementById('edit-ing-store').value.trim());
+    const store=toTitleCase(document.getElementById('edit-ing-store').value.trim());
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in all required fields.');return;}
     const ing=state.ingredients.find(x=>x.id===id);
     if(!ing) return;
@@ -864,9 +864,9 @@
     save(); closeModal('edit-recipe-modal'); renderRecipeDetail(); renderRecipeList();
   }
 
-  function capitalizeFirst(str){
+  function toTitleCase(str){
     if(!str) return str;
-    return str.charAt(0).toUpperCase()+str.slice(1);
+    return str.replace(/\w\S*/g, w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());
   }
 
   function switchRiTab(tab, btn){
@@ -948,7 +948,7 @@
     const newPrice=parseFloat(document.getElementById('ri-new-price').value);
     const newQty=parseFloat(document.getElementById('ri-new-qty').value);
     const newUnit=document.getElementById('ri-new-unit').value;
-    const newStore=capitalizeFirst(document.getElementById('ri-new-store').value.trim());
+    const newStore=toTitleCase(document.getElementById('ri-new-store').value.trim());
     const hasNew=!isNaN(newPrice)&&!isNaN(newQty)&&newQty>0;
     if(hasNew){
       const ingName=ri.ghostName||(picked?state.ingredients.find(x=>x.id===parseFloat(picked.value))?.name:'New ingredient');

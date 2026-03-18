@@ -929,7 +929,8 @@
     if(!recipe) return;
     const idx=parseInt(document.getElementById('edit-ri-idx').value);
     const ri=recipe.ingredients[idx];
-    // check if user picked an existing pantry entry
+    // preserve whatever unit the recipe row already has before we touch anything
+    const preservedUnit=ri.unit||ri.ghostUnit;
     const picked=document.querySelector('input[name="ri-link-pick"]:checked');
     const newPrice=parseFloat(document.getElementById('ri-new-price').value);
     const newQty=parseFloat(document.getElementById('ri-new-qty').value);
@@ -937,7 +938,6 @@
     const newStore=capitalizeFirst(document.getElementById('ri-new-store').value.trim());
     const hasNew=!isNaN(newPrice)&&!isNaN(newQty)&&newQty>0;
     if(hasNew){
-      // create new pantry entry and link it
       const ingName=ri.ghostName||(picked?state.ingredients.find(x=>x.id===parseFloat(picked.value))?.name:'New ingredient');
       const newIng=addIngredient({name:ingName,price:newPrice,qty:newQty,unit:newUnit,store:newStore});
       if(!newIng) return;
@@ -945,12 +945,13 @@
       ri.ghostName=undefined; ri.ghostUnit=undefined;
       renderPantry();
     } else if(picked){
-      // link to existing
       ri.ingId=parseFloat(picked.value);
       ri.ghostName=undefined; ri.ghostUnit=undefined;
     } else {
       alert('Select a pantry entry to link, or fill in the new pantry fields.'); return;
     }
+    // always restore the recipe-level unit — pantry unit should never overwrite it
+    if(preservedUnit) ri.unit=preservedUnit;
     save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
   }
 

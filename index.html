@@ -320,7 +320,7 @@
           <div class="ing-name">${escHtml(ing.name)}</div>
           <div class="ing-detail">${ing.store?`<span class="tag tag-green" style="margin-right:6px">${escHtml(ing.store)}</span>`:''} $${ing.price.toFixed(2)} for ${ing.qty}${ing.unit}</div>
         </div>
-        <div class="ing-cost">$${ing.costPerUnit.toFixed(4)} / ${ing.unit}</div>
+        <div class="ing-cost">$${ing.costPerUnit.toFixed(2)} / ${ing.unit}</div>
         <button class="btn btn-edit" onclick="openEditIngModal(${i})">Edit</button>
         <button class="btn btn-danger" onclick="removeIngredient(${i})">Remove</button>
       </div>`).join('');
@@ -401,7 +401,8 @@
     str=str.split(',')[0].trim();
     const words=str.split(/\s+/);
     const filtered=words.filter(w=>!SKIP_WORDS.includes(w.toLowerCase()));
-    return(filtered.length?filtered:words).join(' ').trim();
+    const result=(filtered.length?filtered:words).join(' ').trim();
+    return result.charAt(0).toUpperCase()+result.slice(1);
   }
 
   function findPantryMatch(name){
@@ -582,7 +583,7 @@
           <span>${escHtml(ing.name)} <span class="breakdown-pct">${ri.amount}${ing.unit}</span></span>
           <span style="display:flex;align-items:center;gap:12px">
             <span style="font-size:11px;color:var(--muted)">${pct}%</span>
-            <span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(3)}</span>
+            <span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>
             <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
           </span>
         </div>`;
@@ -591,7 +592,7 @@
 
     const sel=document.getElementById('recipe-ing-select');
     if(state.ingredients.length){
-      sel.innerHTML=state.ingredients.map(ing=>`<option value="${ing.id}">${escHtml(ing.name)} ($${ing.costPerUnit.toFixed(4)}/${ing.unit})</option>`).join('');
+      sel.innerHTML=state.ingredients.map(ing=>`<option value="${ing.id}">${escHtml(ing.name)} ($${ing.costPerUnit.toFixed(2)}/${ing.unit})</option>`).join('');
       sel.disabled=false;
     } else {
       sel.innerHTML='<option disabled selected>Add ingredients to your pantry first</option>';

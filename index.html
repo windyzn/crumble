@@ -594,9 +594,21 @@
   function applyMatchedIngredients(list,ghosts){
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
     if(!recipe) return;
-    (list||_pendingMatched).forEach(({parsed,ing})=>{recipe.ingredients.push({ingId:ing.id,amount:parsed.qty});});
-    (ghosts||[]).forEach(p=>{recipe.ingredients.push({ingId:null,ghostName:p.name,ghostUnit:p.unit,amount:p.qty});});
+    const skipped=[];
+    (list||_pendingMatched).forEach(({parsed,ing})=>{
+      if(recipe.ingredients.some(ri=>ri.ingId===ing.id)){
+        skipped.push(parsed.name); return;
+      }
+      recipe.ingredients.push({ingId:ing.id,amount:parsed.qty});
+    });
+    (ghosts||[]).forEach(p=>{
+      if(recipe.ingredients.some(ri=>ri.ghostName&&ri.ghostName.toLowerCase()===p.name.toLowerCase())){
+        skipped.push(p.name); return;
+      }
+      recipe.ingredients.push({ingId:null,ghostName:p.name,ghostUnit:p.unit,amount:p.qty});
+    });
     save(); renderRecipeDetail();
+    if(skipped.length) showToast(`Already in recipe, skipped: ${skipped.join(', ')}.`);
   }
 
   /* RECIPES */

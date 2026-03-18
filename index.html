@@ -180,18 +180,16 @@
         </div>
         <div id="breakdown-list"></div>
         <div class="divider"></div>
-        <div class="section-row">
-          <div class="section-title">Add ingredient</div>
-          <button class="btn btn-ghost btn-sm" onclick="openPasteModal()">&#128203; Paste list</button>
-        </div>
+        <div class="section-title">Add ingredient</div>
         <div class="form-row" style="margin-top:4px">
           <div class="form-group" style="flex:2;min-width:140px">
             <label>Ingredient</label>
             <select id="recipe-ing-select" style="width:100%"></select>
           </div>
           <div class="form-group"><label>Amount used</label><input type="number" id="recipe-ing-amount" placeholder="250" min="0" step="any"></div>
-          <div class="form-group" style="align-self:flex-end"><button class="btn btn-green" onclick="addIngredientToRecipe()">Add</button></div>
+          <div class="form-group" style="align-self:flex-end"><button class="btn btn-ghost" onclick="addIngredientToRecipe()">Add</button></div>
         </div>
+        <button class="btn btn-primary" onclick="openPasteModal()" style="width:100%;margin-top:10px">&#128203; Paste ingredient list</button>
         <div class="divider"></div>
         <div class="section-row">
           <div class="section-title">Method <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional)</span></div>
@@ -271,7 +269,16 @@
           <label>Amount used</label>
           <input type="number" id="edit-ri-amount" min="0" step="any">
         </div>
-        <div id="edit-ri-unit-display" style="align-self:flex-end;font-size:13px;color:var(--muted);padding-bottom:10px"></div>
+        <div class="form-group">
+          <label>Unit</label>
+          <select id="edit-ri-unit">
+            <option value="g">g</option><option value="kg">kg</option>
+            <option value="oz">oz</option><option value="lb">lb</option>
+            <option value="ml">ml</option><option value="L">L</option>
+            <option value="tsp">tsp</option><option value="tbsp">tbsp</option>
+            <option value="cup">cup</option><option value="count">count</option>
+          </select>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('edit-recipe-ing-modal')">Cancel</button>
@@ -813,7 +820,7 @@
     document.getElementById('edit-ri-idx').value=idx;
     document.getElementById('edit-ri-name').textContent=ing?ing.name:(ri.ghostName||'Unknown');
     document.getElementById('edit-ri-amount').value=ri.amount;
-    document.getElementById('edit-ri-unit-display').textContent=ing?ing.unit:(ri.ghostUnit||'');
+    document.getElementById('edit-ri-unit').value=ing?ing.unit:(ri.ghostUnit||'g');
     // reset to amount tab
     document.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.modal-tab-panel').forEach(p=>p.classList.remove('active'));
@@ -852,8 +859,11 @@
     if(!recipe) return;
     const idx=parseInt(document.getElementById('edit-ri-idx').value);
     const amount=parseFloat(document.getElementById('edit-ri-amount').value);
+    const unit=document.getElementById('edit-ri-unit').value;
     if(isNaN(amount)||amount<=0){alert('Please enter a valid amount.');return;}
     recipe.ingredients[idx].amount=amount;
+    // for ghost ingredients, update the stored unit too
+    if(!recipe.ingredients[idx].ingId) recipe.ingredients[idx].ghostUnit=unit;
     save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
   }
 

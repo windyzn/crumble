@@ -93,6 +93,15 @@
     .instructions-empty { font-size:13px; color:var(--muted); font-style:italic; }
     .section-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
     .section-row .section-title { margin-bottom:0; }
+    .modal-tabs { display:flex; gap:0; margin-bottom:1.1rem; border-bottom:1.5px solid var(--border); }
+    .modal-tab { padding:7px 16px; font-size:13px; font-family:'DM Sans',sans-serif; border:none; background:none; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1.5px; font-weight:400; transition:color 0.15s; }
+    .modal-tab.active { color:var(--pink-dark); border-bottom-color:var(--pink-mid); font-weight:500; }
+    .modal-tab-panel { display:none; } .modal-tab-panel.active { display:block; }
+    .link-option { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:9px; cursor:pointer; transition:background 0.12s; }
+    .link-option:hover { background:var(--pink-light); }
+    .link-option input[type=radio] { accent-color:var(--pink-dark); width:15px; height:15px; flex-shrink:0; cursor:pointer; }
+    .link-option-name { font-size:13px; font-weight:500; }
+    .link-option-detail { font-size:11px; color:var(--muted); }
   </style>
 </head>
 <body>
@@ -166,7 +175,9 @@
         <div class="section-title">Retail price options</div>
         <div class="markup-grid" id="markup-grid"></div>
         <div class="divider"></div>
-        <div class="section-title">Ingredient breakdown</div>
+        <div class="section-row">
+          <div class="section-title">Ingredient breakdown</div>
+        </div>
         <div id="breakdown-list"></div>
         <div class="divider"></div>
         <div class="section-row">
@@ -199,6 +210,32 @@
   </div>
 </div>
 
+<!-- EDIT RECIPE MODAL -->
+<div class="modal-bg" id="edit-recipe-modal">
+  <div class="modal">
+    <div class="modal-title">Edit recipe</div>
+    <input type="hidden" id="edit-recipe-id">
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Recipe name</label>
+      <input type="text" id="edit-recipe-name" style="width:100%">
+    </div>
+    <div class="form-row" style="margin-bottom:12px">
+      <div class="form-group">
+        <label>Servings / yield</label>
+        <input type="number" id="edit-recipe-servings" min="1" style="width:110px">
+      </div>
+      <div class="form-group">
+        <label>Baking temperature <em>(optional)</em></label>
+        <input type="text" id="edit-recipe-temp" placeholder="e.g. 350°F / 175°C" style="width:200px">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('edit-recipe-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRecipeEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- NEW RECIPE MODAL -->
 <div class="modal-bg" id="recipe-modal">
   <div class="modal">
@@ -214,6 +251,59 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('recipe-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="createRecipe()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT RECIPE INGREDIENT MODAL -->
+<div class="modal-bg" id="edit-recipe-ing-modal">
+  <div class="modal">
+    <div class="modal-title" id="edit-ri-name"></div>
+    <input type="hidden" id="edit-ri-idx">
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchRiTab('amount',this)">Amount</button>
+      <button class="modal-tab" onclick="switchRiTab('link',this)">Pantry link</button>
+    </div>
+    <!-- Amount tab -->
+    <div class="modal-tab-panel active" id="ri-tab-amount">
+      <div class="form-row" style="margin-bottom:4px">
+        <div class="form-group">
+          <label>Amount used</label>
+          <input type="number" id="edit-ri-amount" min="0" step="any">
+        </div>
+        <div id="edit-ri-unit-display" style="align-self:flex-end;font-size:13px;color:var(--muted);padding-bottom:10px"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('edit-recipe-ing-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveRecipeIngEdit()">Save</button>
+      </div>
+    </div>
+    <!-- Pantry link tab -->
+    <div class="modal-tab-panel" id="ri-tab-link">
+      <p class="modal-subtitle">Link this ingredient to a pantry entry so costs are tracked, or create a new one.</p>
+      <div id="ri-link-list" style="max-height:220px;overflow-y:auto;margin-bottom:12px"></div>
+      <div style="border-top:0.5px solid var(--border);padding-top:12px;margin-bottom:4px">
+        <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.4px">Or create a new pantry entry</div>
+        <div class="form-row" style="margin-bottom:10px">
+          <div class="form-group"><label>Store price ($)</label><input type="number" id="ri-new-price" placeholder="0.00" min="0" step="0.01"></div>
+          <div class="form-group"><label>Package amount</label><input type="number" id="ri-new-qty" placeholder="500" min="0" step="any"></div>
+          <div class="form-group"><label>Unit</label>
+            <select id="ri-new-unit">
+              <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
+              <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
+              <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:4px">
+          <label>Store / brand <em>(optional)</em></label>
+          <input type="text" id="ri-new-store" placeholder="e.g. Costco" style="width:100%">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('edit-recipe-ing-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveRiLinkEdit()">Save link</button>
+      </div>
     </div>
   </div>
 </div>
@@ -298,7 +388,7 @@
     const price = ov ? ov.price : parseFloat(document.getElementById('ing-price').value);
     const qty   = ov ? ov.qty   : parseFloat(document.getElementById('ing-qty').value);
     const unit  = ov ? ov.unit  : document.getElementById('ing-unit').value;
-    const store = ov ? (ov.store||'') : document.getElementById('ing-store').value.trim();
+    const store = ov ? (ov.store||'') : capitalizeFirst(document.getElementById('ing-store').value.trim());
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in name, store price, and package amount.');return null;}
     const ing={id:Date.now()+Math.random(),name,price,qty,unit,store,costPerUnit:price/qty};
     state.ingredients.push(ing); save();
@@ -330,7 +420,7 @@
     if(!confirm('Remove this ingredient from your pantry?')) return;
     const id=state.ingredients[i].id;
     state.ingredients.splice(i,1);
-    state.recipes.forEach(r=>{r.ingredients=r.ingredients.filter(x=>x.ingId!==id);});
+    state.recipes.forEach(r=>{r.ingredients=r.ingredients.filter(x=>x.ingId!==id||x.ingId===null);});
     save(); renderPantry();
     if(state.activeRecipeId) renderRecipeDetail();
   }
@@ -352,7 +442,7 @@
     const price=parseFloat(document.getElementById('edit-ing-price').value);
     const qty=parseFloat(document.getElementById('edit-ing-qty').value);
     const unit=document.getElementById('edit-ing-unit').value;
-    const store=document.getElementById('edit-ing-store').value.trim();
+    const store=capitalizeFirst(document.getElementById('edit-ing-store').value.trim());
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in all required fields.');return;}
     const ing=state.ingredients.find(x=>x.id===id);
     if(!ing) return;
@@ -460,26 +550,32 @@
 
   function saveMissingAndAdd(){
     const newlyAdded=[];
+    const ghosts=[];
     _pendingMissing.forEach((p,i)=>{
       const price=parseFloat(document.getElementById(`mp-price-${i}`).value);
       const qty=parseFloat(document.getElementById(`mp-qty-${i}`).value);
       const unit=document.getElementById(`mp-unit-${i}`).value;
       const store=document.getElementById(`mp-store-${i}`).value.trim();
-      if(isNaN(price)||isNaN(qty)||qty===0) return;
+      if(isNaN(price)||isNaN(qty)||qty===0){
+        // no pantry info — add as ghost
+        ghosts.push(p);
+        return;
+      }
       const ing=addIngredient({name:p.name,price,qty,unit,store});
       if(ing) newlyAdded.push({parsed:p,ing});
     });
     renderPantry();
     closeModal('missing-modal');
-    applyMatchedIngredients([..._pendingMatched,...newlyAdded]);
+    applyMatchedIngredients([..._pendingMatched,...newlyAdded],ghosts);
   }
 
-  function skipMissing(){closeModal('missing-modal');applyMatchedIngredients(_pendingMatched);}
+  function skipMissing(){closeModal('missing-modal');applyMatchedIngredients(_pendingMatched,_pendingMissing);}
 
-  function applyMatchedIngredients(list){
+  function applyMatchedIngredients(list,ghosts){
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
     if(!recipe) return;
     (list||_pendingMatched).forEach(({parsed,ing})=>{recipe.ingredients.push({ingId:ing.id,amount:parsed.qty});});
+    (ghosts||[]).forEach(p=>{recipe.ingredients.push({ingId:null,ghostName:p.name,ghostUnit:p.unit,amount:p.qty});});
     save(); renderRecipeDetail();
   }
 
@@ -552,9 +648,12 @@
     document.getElementById('recipe-detail-header').innerHTML=`
       <div>
         <div style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:700">${escHtml(recipe.name)}</div>
-        <div style="font-size:13px;color:var(--muted)">${recipe.servings} serving${recipe.servings!==1?'s':''}</div>
+        <div style="font-size:13px;color:var(--muted)">${recipe.servings} serving${recipe.servings!==1?'s':''}${recipe.temp?' &middot; '+escHtml(recipe.temp):''}</div>
       </div>
-      <button class="btn btn-danger" onclick="deleteRecipe(${recipe.id})">Delete recipe</button>`;
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-edit" onclick="openEditRecipeModal(${recipe.id})">Edit</button>
+        <button class="btn btn-danger" onclick="deleteRecipe(${recipe.id})">Delete</button>
+      </div>`;
 
     document.getElementById('cost-summary').innerHTML=`
       <div class="cost-card"><div class="label">Total cost</div><div class="value">$${totalCost.toFixed(2)}</div></div>
@@ -576,17 +675,29 @@
     } else {
       breakdown.innerHTML=recipe.ingredients.map((ri,idx)=>{
         const ing=state.ingredients.find(x=>x.id===ri.ingId);
-        if(!ing) return '';
-        const lineCost=ing.costPerUnit*ri.amount;
-        const pct=totalCost>0?((lineCost/totalCost)*100).toFixed(1):'0.0';
-        return `<div class="breakdown-row">
-          <span>${escHtml(ing.name)} <span class="breakdown-pct">${ri.amount}${ing.unit}</span></span>
-          <span style="display:flex;align-items:center;gap:12px">
-            <span style="font-size:11px;color:var(--muted)">${pct}%</span>
-            <span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>
-            <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
-          </span>
-        </div>`;
+        if(ing){
+          const lineCost=ing.costPerUnit*ri.amount;
+          return `<div class="breakdown-row">
+            <span>${escHtml(ing.name)} <span class="breakdown-pct">${ri.amount}${ing.unit}</span></span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>
+              <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
+              <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
+            </span>
+          </div>`;
+        } else {
+          // ghost ingredient — parsed from list but no pantry entry yet
+          return `<div class="breakdown-row">
+            <span style="display:flex;align-items:center;gap:8px">
+              ${escHtml(ri.ghostName||'Unknown')} <span class="breakdown-pct">${ri.amount} ${ri.ghostUnit||''}</span>
+              <span class="tag tag-pink" style="font-size:10px">no price</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
+              <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
+            </span>
+          </div>`;
+        }
       }).join('');
     }
 
@@ -658,6 +769,122 @@
     if(!recipe) return;
     recipe.instructions=document.getElementById('instructions-input').value;
     save(); cancelInstructionsEdit(); renderInstructions(recipe);
+  }
+
+  function openEditRecipeModal(id){
+    const recipe=state.recipes.find(r=>r.id===id);
+    if(!recipe) return;
+    document.getElementById('edit-recipe-id').value=recipe.id;
+    document.getElementById('edit-recipe-name').value=recipe.name;
+    document.getElementById('edit-recipe-servings').value=recipe.servings;
+    document.getElementById('edit-recipe-temp').value=recipe.temp||'';
+    openModal('edit-recipe-modal');
+  }
+
+  function saveRecipeEdit(){
+    const id=parseFloat(document.getElementById('edit-recipe-id').value);
+    const name=document.getElementById('edit-recipe-name').value.trim();
+    const servings=parseInt(document.getElementById('edit-recipe-servings').value);
+    const temp=document.getElementById('edit-recipe-temp').value.trim();
+    if(!name||isNaN(servings)||servings<1){alert('Please enter a name and number of servings.');return;}
+    const recipe=state.recipes.find(r=>r.id===id);
+    if(!recipe) return;
+    Object.assign(recipe,{name,servings,temp});
+    save(); closeModal('edit-recipe-modal'); renderRecipeDetail(); renderRecipeList();
+  }
+
+  function capitalizeFirst(str){
+    if(!str) return str;
+    return str.charAt(0).toUpperCase()+str.slice(1);
+  }
+
+  function switchRiTab(tab, btn){
+    document.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.modal-tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('ri-tab-'+tab).classList.add('active');
+  }
+
+  function openEditRecipeIngModal(idx){
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(!recipe) return;
+    const ri=recipe.ingredients[idx];
+    const ing=state.ingredients.find(x=>x.id===ri.ingId);
+    document.getElementById('edit-ri-idx').value=idx;
+    document.getElementById('edit-ri-name').textContent=ing?ing.name:(ri.ghostName||'Unknown');
+    document.getElementById('edit-ri-amount').value=ri.amount;
+    document.getElementById('edit-ri-unit-display').textContent=ing?ing.unit:(ri.ghostUnit||'');
+    // reset to amount tab
+    document.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.modal-tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelector('.modal-tab').classList.add('active');
+    document.getElementById('ri-tab-amount').classList.add('active');
+    // clear new pantry fields
+    ['ri-new-price','ri-new-qty','ri-new-store'].forEach(id=>document.getElementById(id).value='');
+    // populate link list
+    const ghostName=(ri.ghostName||'').toLowerCase();
+    const linkList=document.getElementById('ri-link-list');
+    if(!state.ingredients.length){
+      linkList.innerHTML='<div class="empty" style="padding:0.5rem 0">No pantry entries yet — create one below.</div>';
+    } else {
+      linkList.innerHTML=state.ingredients.map(p=>`
+        <label class="link-option">
+          <input type="radio" name="ri-link-pick" value="${p.id}" ${ri.ingId===p.id?'checked':''}>
+          <div>
+            <div class="link-option-name">${escHtml(p.name)}</div>
+            <div class="link-option-detail">$${p.costPerUnit.toFixed(2)}/${p.unit}${p.store?' &middot; '+escHtml(p.store):''}</div>
+          </div>
+        </label>`).join('');
+      // pre-select best match for ghosts
+      if(!ri.ingId && ghostName){
+        const match=state.ingredients.find(p=>p.name.toLowerCase().includes(ghostName)||ghostName.includes(p.name.toLowerCase()));
+        if(match){
+          const radio=linkList.querySelector(`input[value="${match.id}"]`);
+          if(radio) radio.checked=true;
+        }
+      }
+    }
+    openModal('edit-recipe-ing-modal');
+  }
+
+  function saveRecipeIngEdit(){
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(!recipe) return;
+    const idx=parseInt(document.getElementById('edit-ri-idx').value);
+    const amount=parseFloat(document.getElementById('edit-ri-amount').value);
+    if(isNaN(amount)||amount<=0){alert('Please enter a valid amount.');return;}
+    recipe.ingredients[idx].amount=amount;
+    save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
+  }
+
+  function saveRiLinkEdit(){
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(!recipe) return;
+    const idx=parseInt(document.getElementById('edit-ri-idx').value);
+    const ri=recipe.ingredients[idx];
+    // check if user picked an existing pantry entry
+    const picked=document.querySelector('input[name="ri-link-pick"]:checked');
+    const newPrice=parseFloat(document.getElementById('ri-new-price').value);
+    const newQty=parseFloat(document.getElementById('ri-new-qty').value);
+    const newUnit=document.getElementById('ri-new-unit').value;
+    const newStore=capitalizeFirst(document.getElementById('ri-new-store').value.trim());
+    const hasNew=!isNaN(newPrice)&&!isNaN(newQty)&&newQty>0;
+    if(hasNew){
+      // create new pantry entry and link it
+      const ingName=ri.ghostName||(picked?state.ingredients.find(x=>x.id===parseFloat(picked.value))?.name:'New ingredient');
+      const newIng=addIngredient({name:ingName,price:newPrice,qty:newQty,unit:newUnit,store:newStore});
+      if(!newIng) return;
+      ri.ingId=newIng.id;
+      ri.ghostName=undefined; ri.ghostUnit=undefined;
+      renderPantry();
+    } else if(picked){
+      // link to existing
+      ri.ingId=parseFloat(picked.value);
+      ri.ghostName=undefined; ri.ghostUnit=undefined;
+    } else {
+      alert('Select a pantry entry to link, or fill in the new pantry fields.'); return;
+    }
+    save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
   }
 
   function escHtml(str){

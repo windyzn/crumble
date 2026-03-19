@@ -223,7 +223,34 @@
           <div class="form-group"><label>Amount used</label><input type="number" id="recipe-ing-amount" placeholder="250" min="0" step="any"></div>
           <div class="form-group" style="align-self:flex-end"><button class="btn btn-ghost" onclick="addIngredientToRecipe()">Add</button></div>
         </div>
-        <button class="btn btn-primary" onclick="openPasteModal()" style="width:100%;margin-top:10px">&#128203; Paste ingredient list</button>
+        <div id="new-pantry-inline-area" style="display:none;margin-top:10px;background:var(--pink-light);border-radius:12px;padding:12px">
+          <div style="font-size:12px;font-weight:500;color:var(--pink-dark);margin-bottom:8px">New pantry ingredient</div>
+          <div class="form-row" style="margin-bottom:8px">
+            <div class="form-group" style="flex:2;min-width:120px">
+              <label>Name</label>
+              <input type="text" id="inline-ing-name" placeholder="e.g. Vanilla extract" style="width:100%">
+            </div>
+            <div class="form-group"><label>Store price ($)</label><input type="number" id="inline-ing-price" placeholder="3.50" min="0" step="0.01"></div>
+            <div class="form-group"><label>Package amount</label><input type="number" id="inline-ing-qty" placeholder="100" min="0" step="any"></div>
+            <div class="form-group"><label>Unit</label>
+              <select id="inline-ing-unit">
+                <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
+                <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
+                <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row" style="margin-bottom:8px">
+            <div class="form-group"><label>Amount used in recipe</label><input type="number" id="inline-ing-amount" placeholder="5" min="0" step="any"></div>
+            <div class="form-group" style="flex:2;min-width:120px"><label>Store / brand <em>(optional)</em></label><input type="text" id="inline-ing-store" placeholder="e.g. Nielsen-Massey" style="width:100%"></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-ghost btn-sm" onclick="toggleNewPantryInline(false)">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="addNewPantryAndLink()">Add to pantry &amp; recipe</button>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="toggleNewPantryInline()" style="margin-top:6px;font-size:12px;color:var(--pink-dark);border-color:var(--pink)">+ New pantry ingredient</button>
+        <button class="btn btn-primary" onclick="openPasteModal()" style="width:100%;margin-top:8px">&#128203; Paste ingredient list</button>
         <div class="divider"></div>
         <div class="section-row">
           <div class="section-title">Method <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional)</span></div>
@@ -316,9 +343,9 @@
 <!-- EDIT RECIPE INGREDIENT MODAL -->
 <div class="modal-bg" id="edit-recipe-ing-modal">
   <div class="modal">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.1rem">
-      <div id="edit-ri-name-display" style="font-family:'Poppins',sans-serif;font-size:1.1rem;font-weight:700;flex:1"></div>
-      <button class="btn-pencil" onclick="toggleRiNameEdit()" title="Edit name">&#9998;</button>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:1.1rem;flex-wrap:wrap">
+      <div id="edit-ri-name-display" style="font-family:'Poppins',sans-serif;font-size:1.1rem;font-weight:700"></div>
+      <button class="btn-pencil" onclick="toggleRiNameEdit()" title="Edit name" style="color:var(--pink-dark);transform:scaleX(-1) rotate(180deg);font-size:14px">&#9998;</button>
     </div>
     <div id="edit-ri-name-edit-area" style="display:none;margin-bottom:12px">
       <div class="form-group">
@@ -628,22 +655,25 @@
   function showReviewModal(parsed){
     const total=parsed.length;
     document.getElementById('review-subtitle').textContent=
-      `${total} ingredient${total!==1?'s':''} parsed. Edit names or notes, uncheck any to skip.`;
+      `${total} ingredient${total!==1?'s':''} parsed. Edit any fields, uncheck any to skip.`;
+    const unitOpts=['g','kg','oz','lb','ml','L','tsp','tbsp','cup','count'].map(u=>`<option value="${u}">${u}</option>`).join('');
     document.getElementById('review-list').innerHTML=parsed.map((p,i)=>{
       const match=findPantryMatch(p.name);
       const tag=match
         ?`<span class="tag tag-green" style="font-size:10px;margin-left:6px">in pantry</span>`
         :`<span class="tag tag-pink" style="font-size:10px;margin-left:6px">new</span>`;
+      const unitSel=unitOpts.replace(`value="${p.unit}"`,`value="${p.unit}" selected`);
       return `<div class="review-item${match?'':' unmatched'}">
-        <input type="checkbox" id="review-cb-${i}" checked style="margin-top:10px">
+        <input type="checkbox" id="review-cb-${i}" checked style="margin-top:10px;flex-shrink:0">
         <div class="review-item-body">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
             <input type="text" id="review-name-${i}" value="${escHtml(p.name)}" style="flex:1;font-size:13px;font-weight:500;padding:5px 8px">
             ${tag}
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input type="text" id="review-notes-${i}" placeholder="notes, e.g. browned, cold…" style="flex:1;min-width:120px;font-size:12px;padding:4px 8px;color:var(--muted)">
-            <span style="font-size:11px;color:var(--muted);align-self:center">${p.qty} ${p.unit} &mdash; <em>${escHtml(p.raw)}</em></span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input type="number" id="review-qty-${i}" value="${p.qty}" min="0" step="any" style="width:80px;font-size:12px;padding:4px 8px">
+            <select id="review-unit-${i}" style="font-size:12px;padding:4px 8px">${unitSel}</select>
+            <input type="text" id="review-notes-${i}" placeholder="notes, e.g. browned…" style="flex:1;min-width:100px;font-size:12px;padding:4px 8px">
           </div>
         </div>
       </div>`;
@@ -663,10 +693,14 @@
       if(!cb||!cb.checked) return acc;
       const nameEl=document.getElementById(`review-name-${i}`);
       const notesEl=document.getElementById(`review-notes-${i}`);
+      const qtyEl=document.getElementById(`review-qty-${i}`);
+      const unitEl=document.getElementById(`review-unit-${i}`);
       acc.push({
         ...p,
         name: nameEl ? (nameEl.value.trim()||p.name) : p.name,
-        notes: notesEl ? notesEl.value.trim() : ''
+        notes: notesEl ? notesEl.value.trim() : '',
+        qty: qtyEl ? (parseFloat(qtyEl.value)||p.qty) : p.qty,
+        unit: unitEl ? unitEl.value : p.unit,
       });
       return acc;
     },[]);
@@ -912,6 +946,31 @@
     }
 
     renderInstructions(recipe);
+  }
+
+  function toggleNewPantryInline(forceState){
+    const area=document.getElementById('new-pantry-inline-area');
+    const open=forceState!==undefined?forceState:area.style.display==='none';
+    area.style.display=open?'block':'none';
+    if(open) document.getElementById('inline-ing-name').focus();
+  }
+
+  function addNewPantryAndLink(){
+    const name=document.getElementById('inline-ing-name').value.trim();
+    const price=parseFloat(document.getElementById('inline-ing-price').value);
+    const qty=parseFloat(document.getElementById('inline-ing-qty').value);
+    const unit=document.getElementById('inline-ing-unit').value;
+    const amount=parseFloat(document.getElementById('inline-ing-amount').value);
+    const store=toTitleCase(document.getElementById('inline-ing-store').value.trim());
+    if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in name, store price, and package amount.');return;}
+    if(isNaN(amount)||amount<=0){alert('Please enter an amount used in the recipe.');return;}
+    const ing=addIngredient({name,price,qty,unit,store});
+    if(!ing) return;
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(recipe) recipe.ingredients.push({ingId:ing.id,amount,unit});
+    save(); renderPantry(); renderRecipeDetail();
+    toggleNewPantryInline(false);
+    ['inline-ing-name','inline-ing-price','inline-ing-qty','inline-ing-amount','inline-ing-store'].forEach(id=>document.getElementById(id).value='');
   }
 
   function addIngredientToRecipe(){

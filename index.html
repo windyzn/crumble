@@ -89,6 +89,15 @@
     .missing-ing-block { border:0.5px solid var(--border-strong); border-radius:12px; padding:14px; margin-bottom:12px; }
     .missing-ing-name { font-weight:500; font-size:14px; margin-bottom:4px; }
     .missing-ing-parsed { font-size:12px; color:var(--muted); margin-bottom:10px; }
+    .review-item { display:flex; align-items:flex-start; gap:10px; padding:9px 10px; border-radius:9px; margin-bottom:4px; transition:background 0.1s; }
+    .review-item:hover { background:var(--pink-light); }
+    .review-item.unmatched { background:#fafaf8; }
+    .review-item input[type=checkbox] { margin-top:2px; accent-color:var(--pink-dark); width:15px; height:15px; flex-shrink:0; cursor:pointer; }
+    .review-item-body { flex:1; }
+    .review-item-name { font-size:13px; font-weight:500; }
+    .review-item-detail { font-size:11px; color:var(--muted); margin-top:1px; }
+    .btn-pencil { background:none; border:none; cursor:pointer; font-size:15px; color:var(--muted); padding:2px 4px; border-radius:5px; line-height:1; }
+    .btn-pencil:hover { color:var(--pink-dark); background:var(--pink-light); }
     .instructions-display { font-size:13px; line-height:1.8; color:var(--text); white-space:pre-wrap; }
     .instructions-empty { font-size:13px; color:var(--muted); font-style:italic; }
     .toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:#2C2C2A; color:#fff; font-size:13px; padding:12px 18px; border-radius:12px; max-width:min(480px,90vw); text-align:center; line-height:1.5; z-index:200; opacity:0; transition:opacity 0.2s; pointer-events:none; }
@@ -307,7 +316,16 @@
 <!-- EDIT RECIPE INGREDIENT MODAL -->
 <div class="modal-bg" id="edit-recipe-ing-modal">
   <div class="modal">
-    <div class="modal-title" id="edit-ri-name"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.1rem">
+      <div id="edit-ri-name-display" style="font-family:'Poppins',sans-serif;font-size:1.1rem;font-weight:700;flex:1"></div>
+      <button class="btn-pencil" onclick="toggleRiNameEdit()" title="Edit name">&#9998;</button>
+    </div>
+    <div id="edit-ri-name-edit-area" style="display:none;margin-bottom:12px">
+      <div class="form-group">
+        <label>Display name <em>(overrides pantry name in this recipe)</em></label>
+        <input type="text" id="edit-ri-display-name" style="width:100%">
+      </div>
+    </div>
     <input type="hidden" id="edit-ri-idx">
     <div class="modal-tabs">
       <button class="modal-tab active" onclick="switchRiTab('amount',this)">Amount</button>
@@ -315,6 +333,10 @@
     </div>
     <!-- Amount tab -->
     <div class="modal-tab-panel active" id="ri-tab-amount">
+      <div class="form-group" style="margin-bottom:10px">
+        <label>Notes <em>(optional — e.g. browned, cold, melted)</em></label>
+        <input type="text" id="edit-ri-notes" placeholder="e.g. browned" style="width:100%">
+      </div>
       <div class="form-row" style="margin-bottom:4px">
         <div class="form-group">
           <label>Amount used</label>
@@ -393,6 +415,23 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('edit-ing-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveIngredientEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW PARSED MODAL -->
+<div class="modal-bg" id="review-modal">
+  <div class="modal">
+    <div class="modal-title">Review parsed ingredients</div>
+    <p class="modal-subtitle" id="review-subtitle"></p>
+    <div id="review-list" style="max-height:340px;overflow-y:auto;margin-bottom:4px"></div>
+    <div style="display:flex;gap:12px;margin-bottom:4px;padding-top:8px;border-top:0.5px solid var(--border)">
+      <button class="btn btn-ghost btn-sm" onclick="reviewSelectAll(true)">Select all</button>
+      <button class="btn btn-ghost btn-sm" onclick="reviewSelectAll(false)">Deselect all</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('review-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmReview()">Add selected</button>
     </div>
   </div>
 </div>
@@ -583,6 +622,61 @@
       else _pendingMissing.push(p);
     });
     closeModal('paste-modal');
+    showReviewModal(parsed);
+  }
+
+  function showReviewModal(parsed){
+    const total=parsed.length;
+    document.getElementById('review-subtitle').textContent=
+      `${total} ingredient${total!==1?'s':''} parsed. Edit names or notes, uncheck any to skip.`;
+    document.getElementById('review-list').innerHTML=parsed.map((p,i)=>{
+      const match=findPantryMatch(p.name);
+      const tag=match
+        ?`<span class="tag tag-green" style="font-size:10px;margin-left:6px">in pantry</span>`
+        :`<span class="tag tag-pink" style="font-size:10px;margin-left:6px">new</span>`;
+      return `<div class="review-item${match?'':' unmatched'}">
+        <input type="checkbox" id="review-cb-${i}" checked style="margin-top:10px">
+        <div class="review-item-body">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+            <input type="text" id="review-name-${i}" value="${escHtml(p.name)}" style="flex:1;font-size:13px;font-weight:500;padding:5px 8px">
+            ${tag}
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="text" id="review-notes-${i}" placeholder="notes, e.g. browned, cold…" style="flex:1;min-width:120px;font-size:12px;padding:4px 8px;color:var(--muted)">
+            <span style="font-size:11px;color:var(--muted);align-self:center">${p.qty} ${p.unit} &mdash; <em>${escHtml(p.raw)}</em></span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    openModal('review-modal');
+  }
+
+  function reviewSelectAll(checked){
+    document.querySelectorAll('#review-list input[type=checkbox]').forEach(cb=>cb.checked=checked);
+  }
+
+  function confirmReview(){
+    const lines=document.getElementById('paste-input').value.split(/\r?\n/).filter(l=>l.trim());
+    const allParsed=lines.map(parseLine).filter(Boolean);
+    const selected=allParsed.reduce((acc,p,i)=>{
+      const cb=document.getElementById(`review-cb-${i}`);
+      if(!cb||!cb.checked) return acc;
+      const nameEl=document.getElementById(`review-name-${i}`);
+      const notesEl=document.getElementById(`review-notes-${i}`);
+      acc.push({
+        ...p,
+        name: nameEl ? (nameEl.value.trim()||p.name) : p.name,
+        notes: notesEl ? notesEl.value.trim() : ''
+      });
+      return acc;
+    },[]);
+    _pendingMatched=[]; _pendingMissing=[];
+    selected.forEach(p=>{
+      const match=findPantryMatch(p.name);
+      if(match) _pendingMatched.push({parsed:p,ing:match});
+      else _pendingMissing.push(p);
+    });
+    closeModal('review-modal');
     if(_pendingMissing.length>0) showMissingModal();
     else applyMatchedIngredients(_pendingMatched);
   }
@@ -648,13 +742,13 @@
       if(recipe.ingredients.some(ri=>ri.ingId===ing.id)){
         skipped.push(parsed.name); return;
       }
-      recipe.ingredients.push({ingId:ing.id,amount:parsed.qty});
+      recipe.ingredients.push({ingId:ing.id,amount:parsed.qty,notes:parsed.notes||undefined});
     });
     (ghosts||[]).forEach(p=>{
       if(recipe.ingredients.some(ri=>ri.ghostName&&ri.ghostName.toLowerCase()===p.name.toLowerCase())){
         skipped.push(p.name); return;
       }
-      recipe.ingredients.push({ingId:null,ghostName:p.name,ghostUnit:p.unit,amount:p.qty});
+      recipe.ingredients.push({ingId:null,ghostName:p.name,ghostUnit:p.unit,amount:p.qty,notes:p.notes||undefined});
     });
     save(); renderRecipeDetail();
     if(skipped.length) showToast(`Already in recipe, skipped: ${skipped.join(', ')}.`);
@@ -783,8 +877,9 @@
           const displayUnit=ri.unit||ing.unit;
           const converted=convertAmount(ri.amount,displayUnit,ing.unit);
           const lineCost=ing.costPerUnit*converted;
+          const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
           return `<div class="breakdown-row">
-            <span>${escHtml(ing.name)} <span class="breakdown-pct">${ri.amount}${displayUnit}</span></span>
+            <span>${escHtml(label)} <span class="breakdown-pct">${ri.amount}${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:8px">
               <span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
@@ -792,10 +887,10 @@
             </span>
           </div>`;
         } else {
-          // ghost ingredient — parsed from list but no pantry entry yet
+          const label=(ri.displayName||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
           return `<div class="breakdown-row">
             <span style="display:flex;align-items:center;gap:8px">
-              ${escHtml(ri.ghostName||'Unknown')} <span class="breakdown-pct">${ri.amount} ${ri.ghostUnit||''}</span>
+              ${escHtml(label)} <span class="breakdown-pct">${ri.amount} ${ri.ghostUnit||''}</span>
               <span class="tag tag-pink" style="font-size:10px">no price</span>
             </span>
             <span style="display:flex;align-items:center;gap:8px">
@@ -921,7 +1016,12 @@
     const ri=recipe.ingredients[idx];
     const ing=state.ingredients.find(x=>x.id===ri.ingId);
     document.getElementById('edit-ri-idx').value=idx;
-    document.getElementById('edit-ri-name').textContent=ing?ing.name:(ri.ghostName||'Unknown');
+    const baseName=ing?ing.name:(ri.ghostName||'Unknown');
+    const displayName=ri.displayName||baseName;
+    document.getElementById('edit-ri-name-display').textContent=displayName+(ri.notes?`, ${ri.notes}`:'');
+    document.getElementById('edit-ri-display-name').value=ri.displayName||'';
+    document.getElementById('edit-ri-name-edit-area').style.display='none';
+    document.getElementById('edit-ri-notes').value=ri.notes||'';
     document.getElementById('edit-ri-amount').value=ri.amount;
     document.getElementById('edit-ri-unit').value=ri.unit||(ing?ing.unit:(ri.ghostUnit||'g'));
     // reset to amount tab
@@ -957,22 +1057,30 @@
     openModal('edit-recipe-ing-modal');
   }
 
+  function toggleRiNameEdit(){
+    const area=document.getElementById('edit-ri-name-edit-area');
+    area.style.display=area.style.display==='none'?'block':'none';
+    if(area.style.display==='block') document.getElementById('edit-ri-display-name').focus();
+  }
+
   function saveRecipeIngEdit(){
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
     if(!recipe) return;
     const idx=parseInt(document.getElementById('edit-ri-idx').value);
     const amount=parseFloat(document.getElementById('edit-ri-amount').value);
     const unit=document.getElementById('edit-ri-unit').value;
+    const displayName=document.getElementById('edit-ri-display-name').value.trim();
+    const notes=document.getElementById('edit-ri-notes').value.trim();
     if(isNaN(amount)||amount<=0){alert('Please enter a valid amount.');return;}
     recipe.ingredients[idx].amount=amount;
     recipe.ingredients[idx].unit=unit;
+    recipe.ingredients[idx].displayName=displayName||undefined;
+    recipe.ingredients[idx].notes=notes||undefined;
     if(!recipe.ingredients[idx].ingId) recipe.ingredients[idx].ghostUnit=unit;
-    // check family mismatch before closing
-    const linkedIng=state.ingredients.find(x=>x.id===recipe.ingredients[idx].ingId);
-    const mismatch=linkedIng&&UNIT_FAMILY[unit]&&UNIT_FAMILY[linkedIng.unit]&&UNIT_FAMILY[unit]!==UNIT_FAMILY[linkedIng.unit];
     save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
-    if(mismatch){
-      showToast(`Unit mismatch: pantry has "${linkedIng.name}" in ${linkedIng.unit} (${UNIT_FAMILY[linkedIng.unit]}) but you entered ${unit} (${UNIT_FAMILY[unit]}). Cost can't convert between these — update the pantry unit or use a compatible one.`, 7000);
+    const ing=state.ingredients.find(x=>x.id===recipe.ingredients[idx].ingId);
+    if(ing && UNIT_FAMILY[unit] && UNIT_FAMILY[ing.unit] && UNIT_FAMILY[unit]!==UNIT_FAMILY[ing.unit]){
+      showToast(`Unit mismatch: pantry has ${ing.name} in ${ing.unit} (${UNIT_FAMILY[ing.unit]}), but you entered ${unit} (${UNIT_FAMILY[unit]}). Cost can't be calculated accurately.`, 6000);
     }
   }
 

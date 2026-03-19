@@ -1238,13 +1238,15 @@
     document.getElementById('edit-ri-display-name').value=ri.displayName||'';
     document.getElementById('edit-ri-name-edit-area').style.display='none';
     document.getElementById('edit-ri-notes').value=ri.notes||'';
+    document.getElementById('edit-ri-amount').value=ri.amount;
     document.getElementById('edit-ri-optional').checked=ri.optional||false;
     document.getElementById('edit-ri-include-cost').checked=ri.includeCost!==false;
     document.getElementById('edit-ri-unit').value=ri.unit||(ing?ing.unit:(ri.ghostUnit||'g'));
-    // reset to amount tab
-    document.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.modal-tab-panel').forEach(p=>p.classList.remove('active'));
-    document.querySelector('.modal-tab').classList.add('active');
+    // reset to amount tab — scoped to this modal only
+    const modal=document.getElementById('edit-recipe-ing-modal');
+    modal.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
+    modal.querySelectorAll('.modal-tab-panel').forEach(p=>p.classList.remove('active'));
+    modal.querySelector('.modal-tab').classList.add('active');
     document.getElementById('ri-tab-amount').classList.add('active');
     // clear new pantry fields
     ['ri-new-price','ri-new-qty','ri-new-store'].forEach(id=>document.getElementById(id).value='');

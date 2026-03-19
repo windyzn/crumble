@@ -365,7 +365,7 @@
   <div class="modal">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:1.1rem;flex-wrap:wrap">
       <div id="edit-ri-name-display" style="font-family:'Poppins',sans-serif;font-size:1.1rem;font-weight:700"></div>
-      <button class="btn-pencil" onclick="toggleRiNameEdit()" title="Edit name" style="color:var(--pink-dark);transform:scaleX(-1) rotate(180deg);font-size:14px">&#9998;</button>
+      <button class="btn-pencil" onclick="toggleRiNameEdit()" title="Edit name" style="color:var(--pink-dark);transform:rotate(180deg);font-size:14px">&#9998;</button>
     </div>
     <div id="edit-ri-name-edit-area" style="display:none;margin-bottom:12px">
       <div class="form-group">
@@ -384,7 +384,7 @@
         <label>Notes <em>(optional — e.g. browned, cold, melted)</em></label>
         <input type="text" id="edit-ri-notes" placeholder="e.g. browned" style="width:100%">
       </div>
-      <div class="form-row" style="margin-bottom:4px">
+      <div class="form-row" style="margin-bottom:12px">
         <div class="form-group">
           <label>Amount used</label>
           <input type="number" id="edit-ri-amount" min="0" step="any">
@@ -399,6 +399,16 @@
             <option value="cup">cup</option><option value="count">count</option>
           </select>
         </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--cream);border-radius:9px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="edit-ri-optional" style="accent-color:var(--pink-dark);width:15px;height:15px">
+          <span>Mark as <strong>optional</strong> ingredient</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="edit-ri-include-cost" checked style="accent-color:var(--pink-dark);width:15px;height:15px">
+          <span>Include in <strong>cost calculation</strong></span>
+        </label>
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('edit-recipe-ing-modal')">Cancel</button>
@@ -885,6 +895,7 @@
 
   function calcRecipeCost(recipe){
     return recipe.ingredients.reduce((sum,ri)=>{
+      if(ri.includeCost===false) return sum;
       const ing=state.ingredients.find(x=>x.id===ri.ingId);
       if(!ing) return sum;
       const riUnit=ri.unit||ing.unit;
@@ -1046,21 +1057,25 @@
         }
         if(ing){
           const converted=convertAmount(scaledAmount,displayUnit,ing.unit);
-          const lineCost=ing.costPerUnit*converted;
+          const lineCost=ri.includeCost===false?0:ing.costPerUnit*converted;
           const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
-          return `<div class="breakdown-row">
-            <span>${escHtml(label)}${pctBadge} <span class="breakdown-pct">${displayAmount}${displayUnit}</span></span>
+          const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
+          const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
+          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}">
+            <span>${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount}${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:8px">
-              <span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>
+              ${ri.includeCost!==false?`<span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
               <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
             </span>
           </div>`;
         } else {
           const label=(ri.displayName||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
-          return `<div class="breakdown-row">
-            <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              ${escHtml(label)}${pctBadge} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span>
+          const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
+          const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
+          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}">
+            <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+              ${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span>
               <span class="tag tag-pink" style="font-size:10px">no price</span>
             </span>
             <span style="display:flex;align-items:center;gap:8px">
@@ -1223,7 +1238,8 @@
     document.getElementById('edit-ri-display-name').value=ri.displayName||'';
     document.getElementById('edit-ri-name-edit-area').style.display='none';
     document.getElementById('edit-ri-notes').value=ri.notes||'';
-    document.getElementById('edit-ri-amount').value=ri.amount;
+    document.getElementById('edit-ri-optional').checked=ri.optional||false;
+    document.getElementById('edit-ri-include-cost').checked=ri.includeCost!==false;
     document.getElementById('edit-ri-unit').value=ri.unit||(ing?ing.unit:(ri.ghostUnit||'g'));
     // reset to amount tab
     document.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
@@ -1277,6 +1293,8 @@
     recipe.ingredients[idx].unit=unit;
     recipe.ingredients[idx].displayName=displayName||undefined;
     recipe.ingredients[idx].notes=notes||undefined;
+    recipe.ingredients[idx].optional=document.getElementById('edit-ri-optional').checked;
+    recipe.ingredients[idx].includeCost=document.getElementById('edit-ri-include-cost').checked;
     if(!recipe.ingredients[idx].ingId) recipe.ingredients[idx].ghostUnit=unit;
     save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
     const ing=state.ingredients.find(x=>x.id===recipe.ingredients[idx].ingId);

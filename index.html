@@ -231,8 +231,8 @@
               <input type="text" id="inline-ing-name" placeholder="e.g. Vanilla extract" style="width:100%">
             </div>
             <div class="form-group"><label>Store price ($)</label><input type="number" id="inline-ing-price" placeholder="3.50" min="0" step="0.01"></div>
-            <div class="form-group"><label>Package amount</label><input type="number" id="inline-ing-qty" placeholder="100" min="0" step="any"></div>
-            <div class="form-group"><label>Unit</label>
+            <div class="form-group"><label>Package size</label><input type="number" id="inline-ing-qty" placeholder="100" min="0" step="any"></div>
+            <div class="form-group"><label>Pantry unit</label>
               <select id="inline-ing-unit">
                 <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
                 <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
@@ -242,6 +242,13 @@
           </div>
           <div class="form-row" style="margin-bottom:8px">
             <div class="form-group"><label>Amount used in recipe</label><input type="number" id="inline-ing-amount" placeholder="5" min="0" step="any"></div>
+            <div class="form-group"><label>Recipe unit</label>
+              <select id="inline-ing-recipe-unit">
+                <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
+                <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
+                <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
+              </select>
+            </div>
             <div class="form-group" style="flex:2;min-width:120px"><label>Store / brand <em>(optional)</em></label><input type="text" id="inline-ing-store" placeholder="e.g. Nielsen-Massey" style="width:100%"></div>
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -750,16 +757,15 @@
     const ghosts=[];
     _pendingMissing.forEach((p,i)=>{
       const price=parseFloat(document.getElementById(`mp-price-${i}`).value);
-      const qty=parseFloat(document.getElementById(`mp-qty-${i}`).value);
-      const unit=document.getElementById(`mp-unit-${i}`).value;
+      const pantryQty=parseFloat(document.getElementById(`mp-qty-${i}`).value);
+      const pantryUnit=document.getElementById(`mp-unit-${i}`).value;
       const store=document.getElementById(`mp-store-${i}`).value.trim();
-      if(isNaN(price)||isNaN(qty)||qty===0){
-        // no pantry info — add as ghost
+      if(isNaN(price)||isNaN(pantryQty)||pantryQty===0){
         ghosts.push(p);
         return;
       }
-      const ing=addIngredient({name:p.name,price,qty,unit,store});
-      if(ing) newlyAdded.push({parsed:p,ing});
+      const ing=addIngredient({name:p.name,price,qty:pantryQty,unit:pantryUnit,store});
+      if(ing) newlyAdded.push({parsed:p,ing}); // parsed.unit = recipe unit, pantryUnit = pantry unit
     });
     renderPantry();
     closeModal('missing-modal');
@@ -776,7 +782,7 @@
       if(recipe.ingredients.some(ri=>ri.ingId===ing.id)){
         skipped.push(parsed.name); return;
       }
-      recipe.ingredients.push({ingId:ing.id,amount:parsed.qty,notes:parsed.notes||undefined});
+      recipe.ingredients.push({ingId:ing.id,amount:parsed.qty,unit:parsed.unit,notes:parsed.notes||undefined});
     });
     (ghosts||[]).forEach(p=>{
       if(recipe.ingredients.some(ri=>ri.ghostName&&ri.ghostName.toLowerCase()===p.name.toLowerCase())){
@@ -959,15 +965,16 @@
     const name=document.getElementById('inline-ing-name').value.trim();
     const price=parseFloat(document.getElementById('inline-ing-price').value);
     const qty=parseFloat(document.getElementById('inline-ing-qty').value);
-    const unit=document.getElementById('inline-ing-unit').value;
+    const pantryUnit=document.getElementById('inline-ing-unit').value;
     const amount=parseFloat(document.getElementById('inline-ing-amount').value);
+    const recipeUnit=document.getElementById('inline-ing-recipe-unit').value;
     const store=toTitleCase(document.getElementById('inline-ing-store').value.trim());
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in name, store price, and package amount.');return;}
     if(isNaN(amount)||amount<=0){alert('Please enter an amount used in the recipe.');return;}
-    const ing=addIngredient({name,price,qty,unit,store});
+    const ing=addIngredient({name,price,qty,unit:pantryUnit,store});
     if(!ing) return;
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
-    if(recipe) recipe.ingredients.push({ingId:ing.id,amount,unit});
+    if(recipe) recipe.ingredients.push({ingId:ing.id,amount,unit:recipeUnit});
     save(); renderPantry(); renderRecipeDetail();
     toggleNewPantryInline(false);
     ['inline-ing-name','inline-ing-price','inline-ing-qty','inline-ing-amount','inline-ing-store'].forEach(id=>document.getElementById(id).value='');

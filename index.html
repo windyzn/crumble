@@ -184,6 +184,13 @@
         <div id="recipe-detail-header" class="card-header"></div>
         <div class="section-title">Cost summary</div>
         <div class="cost-cards" id="cost-summary"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:8px 12px;background:var(--green-light);border-radius:10px">
+          <span style="font-size:12px;color:var(--green-dark);font-weight:500">Scale recipe</span>
+          <button onclick="changeScale(-0.5)" class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:14px;border-color:var(--green)">&#8722;</button>
+          <span id="scale-display" style="font-size:13px;font-weight:500;color:var(--green-dark);min-width:32px;text-align:center">1×</span>
+          <button onclick="changeScale(0.5)" class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:14px;border-color:var(--green)">&#43;</button>
+          <button onclick="resetScale()" class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--muted)">Reset</button>
+        </div>
         <div class="divider"></div>
         <div class="section-row">
           <div class="section-title" style="margin-bottom:0">Pricing calculator</div>
@@ -545,7 +552,7 @@
 
   /* PANTRY */
   function addIngredient(ov){
-    const name  = ov ? ov.name  : document.getElementById('ing-name').value.trim();
+    const name  = capitalizeName(ov ? ov.name  : document.getElementById('ing-name').value.trim());
     const price = ov ? ov.price : parseFloat(document.getElementById('ing-price').value);
     const qty   = ov ? ov.qty   : parseFloat(document.getElementById('ing-qty').value);
     const unit  = ov ? ov.unit  : document.getElementById('ing-unit').value;
@@ -599,7 +606,7 @@
 
   function saveIngredientEdit(){
     const id=parseFloat(document.getElementById('edit-ing-id').value);
-    const name=document.getElementById('edit-ing-name').value.trim();
+    const name=capitalizeName(document.getElementById('edit-ing-name').value.trim());
     const price=parseFloat(document.getElementById('edit-ing-price').value);
     const qty=parseFloat(document.getElementById('edit-ing-qty').value);
     const unit=document.getElementById('edit-ing-unit').value;
@@ -723,7 +730,7 @@
       const unitEl=document.getElementById(`review-unit-${i}`);
       acc.push({
         ...p,
-        name: nameEl ? (nameEl.value.trim()||p.name) : p.name,
+        name: nameEl ? capitalizeName(nameEl.value.trim()||p.name) : capitalizeName(p.name),
         notes: notesEl ? notesEl.value.trim() : '',
         qty: qtyEl ? (parseFloat(qtyEl.value)||p.qty) : p.qty,
         unit: unitEl ? unitEl.value : p.unit,
@@ -807,7 +814,7 @@
       if(recipe.ingredients.some(ri=>ri.ghostName&&ri.ghostName.toLowerCase()===p.name.toLowerCase())){
         skipped.push(p.name); return;
       }
-      recipe.ingredients.push({ingId:null,ghostName:p.name,ghostUnit:p.unit,amount:p.qty,notes:p.notes||undefined});
+      recipe.ingredients.push({ingId:null,ghostName:capitalizeName(p.name),ghostUnit:p.unit,amount:p.qty,notes:p.notes||undefined});
     });
     save(); renderRecipeDetail();
     if(skipped.length) showToast(`Already in recipe, skipped: ${skipped.join(', ')}.`);
@@ -907,6 +914,22 @@
     return amount*(factors[unit]||1);
   }
 
+  function changeScale(delta){
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(!recipe) return;
+    const current=recipe.scale||1;
+    const next=Math.max(0.5,Math.round((current+delta)*4)/4);
+    recipe.scale=next;
+    save(); renderRecipeDetail();
+  }
+
+  function resetScale(){
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(!recipe) return;
+    recipe.scale=1;
+    save(); renderRecipeDetail();
+  }
+
   function toggleBakersPct(){
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
     if(!recipe) return;
@@ -959,8 +982,10 @@
   function renderRecipeDetail(){
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
     if(!recipe) return;
-    const totalCost=calcRecipeCost(recipe);
-    const perServing=recipe.servings>0?totalCost/recipe.servings:0;
+    const scale=recipe.scale||1;
+    const totalCost=calcRecipeCost(recipe)*scale;
+    const scaledServings=Math.round(recipe.servings*scale);
+    const perServing=scaledServings>0?totalCost/scaledServings:0;
 
     const metaParts=[];
     if(recipe.servings) metaParts.push(`${recipe.servings} serving${recipe.servings!==1?'s':''}`);
@@ -978,14 +1003,18 @@
         <button class="btn btn-danger" onclick="deleteRecipe(${recipe.id})">Delete</button>
       </div>`;
 
+    document.getElementById('scale-display').textContent=scale===1?'1×':(scale%1===0?scale+'×':scale.toFixed(2)+'×');
+
     document.getElementById('cost-summary').innerHTML=`
-      <div class="cost-card"><div class="label">Total cost</div><div class="value">$${totalCost.toFixed(2)}</div></div>
-      <div class="cost-card"><div class="label">Per serving</div><div class="value">$${perServing.toFixed(2)}</div><div class="sub">${recipe.servings} servings</div></div>`;
+      <div class="cost-card"><div class="label">Total cost${scale!==1?' (scaled)':''}</div><div class="value">$${totalCost.toFixed(2)}</div></div>
+      <div class="cost-card"><div class="label">Per serving</div><div class="value">$${perServing.toFixed(2)}</div><div class="sub">${scaledServings} serving${scaledServings!==1?'s':''}</div></div>`;
 
     // baker's % button state
     const bpBtn=document.getElementById('bakers-pct-btn');
     const bpLabel=document.getElementById('bakers-pct-base-label');
     const base=getBakersBase(recipe);
+    // for baker's %, base grams should also be scaled
+    const scaledBase=base?{...base,grams:base.grams*scale}:null;
     if(recipe.bakersPct&&base){
       bpBtn.classList.add('btn-bakers-active');
       bpBtn.textContent='% On';
@@ -1005,21 +1034,22 @@
       breakdown.innerHTML=recipe.ingredients.map((ri,idx)=>{
         const ing=state.ingredients.find(x=>x.id===ri.ingId);
         const displayUnit=ri.unit||(ing?ing.unit:ri.ghostUnit||'');
-        // baker's % calculation
+        const scaledAmount=ri.amount*scale;
+        const displayAmount=scaledAmount%1===0?scaledAmount.toFixed(0):(Math.round(scaledAmount*100)/100).toString();
         let pctBadge='';
-        if(base && idx!==recipe.bakersBaseIdx && WEIGHT_UNITS.has(displayUnit)){
-          const riGrams=toGrams(ri.amount,displayUnit);
-          const pct=(riGrams/base.grams*100);
+        if(scaledBase && idx!==recipe.bakersBaseIdx && WEIGHT_UNITS.has(displayUnit)){
+          const riGrams=toGrams(scaledAmount,displayUnit);
+          const pct=(riGrams/scaledBase.grams*100);
           pctBadge=`<span class="pct-badge">${pct%1===0?pct.toFixed(0):pct.toFixed(1)}%</span>`;
-        } else if(base && idx===recipe.bakersBaseIdx){
+        } else if(scaledBase && idx===recipe.bakersBaseIdx){
           pctBadge=`<span class="pct-badge">100%</span>`;
         }
         if(ing){
-          const converted=convertAmount(ri.amount,displayUnit,ing.unit);
+          const converted=convertAmount(scaledAmount,displayUnit,ing.unit);
           const lineCost=ing.costPerUnit*converted;
           const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
           return `<div class="breakdown-row">
-            <span>${escHtml(label)}${pctBadge} <span class="breakdown-pct">${ri.amount}${displayUnit}</span></span>
+            <span>${escHtml(label)}${pctBadge} <span class="breakdown-pct">${displayAmount}${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:8px">
               <span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
@@ -1030,7 +1060,7 @@
           const label=(ri.displayName||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
           return `<div class="breakdown-row">
             <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              ${escHtml(label)}${pctBadge} <span class="breakdown-pct">${ri.amount} ${displayUnit}</span>
+              ${escHtml(label)}${pctBadge} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span>
               <span class="tag tag-pink" style="font-size:10px">no price</span>
             </span>
             <span style="display:flex;align-items:center;gap:8px">
@@ -1167,6 +1197,11 @@
   function toTitleCase(str){
     if(!str) return str;
     return str.replace(/\w\S*/g, w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());
+  }
+
+  function capitalizeName(str){
+    if(!str) return str;
+    return str.charAt(0).toUpperCase()+str.slice(1);
   }
 
   function switchRiTab(tab, btn){

@@ -98,6 +98,8 @@
     .review-item-detail { font-size:11px; color:var(--muted); margin-top:1px; }
     .btn-pencil { background:none; border:none; cursor:pointer; font-size:15px; color:var(--muted); padding:2px 4px; border-radius:5px; line-height:1; }
     .btn-pencil:hover { color:var(--pink-dark); background:var(--pink-light); }
+    .pct-badge { font-size:10px; color:var(--green-dark); background:var(--green-light); border-radius:6px; padding:1px 5px; margin-left:4px; font-weight:500; }
+    .btn-bakers-active { background:var(--green-mid)!important; color:var(--green-dark)!important; border-color:var(--green-mid)!important; font-weight:500!important; }
     .instructions-display { font-size:13px; line-height:1.8; color:var(--text); white-space:pre-wrap; }
     .instructions-empty { font-size:13px; color:var(--muted); font-style:italic; }
     .toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:#2C2C2A; color:#fff; font-size:13px; padding:12px 18px; border-radius:12px; max-width:min(480px,90vw); text-align:center; line-height:1.5; z-index:200; opacity:0; transition:opacity 0.2s; pointer-events:none; }
@@ -211,6 +213,10 @@
         <div class="divider"></div>
         <div class="section-row">
           <div class="section-title">Ingredient breakdown</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="bakers-pct-base-label" style="font-size:11px;color:var(--muted);display:none"></span>
+            <button id="bakers-pct-btn" class="btn btn-ghost btn-sm" onclick="toggleBakersPct()" style="font-size:11px">% Baker's</button>
+          </div>
         </div>
         <div id="breakdown-list"></div>
         <div class="divider"></div>
@@ -494,6 +500,19 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="skipMissing()">Skip all</button>
       <button class="btn btn-primary" onclick="saveMissingAndAdd()">Add to pantry &amp; recipe</button>
+    </div>
+  </div>
+</div>
+
+<!-- BAKER'S % BASE PICKER MODAL -->
+<div class="modal-bg" id="bakers-modal">
+  <div class="modal">
+    <div class="modal-title">Baker's percentages</div>
+    <p class="modal-subtitle">Choose which ingredient to use as your 100% baseline. All other weight ingredients will be shown as a percentage of this.</p>
+    <div id="bakers-base-list" style="max-height:260px;overflow-y:auto;margin-bottom:4px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('bakers-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmBakersBase()">Set base</button>
     </div>
   </div>
 </div>
@@ -881,6 +900,62 @@
     renderRecipeList();
   }
 
+  const WEIGHT_UNITS=new Set(['g','kg','oz','lb']);
+
+  function toGrams(amount, unit){
+    const factors={g:1,kg:1000,oz:28.3495,lb:453.592};
+    return amount*(factors[unit]||1);
+  }
+
+  function toggleBakersPct(){
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(!recipe) return;
+    if(recipe.bakersPct){
+      recipe.bakersPct=false;
+      recipe.bakersBaseIdx=undefined;
+      save(); renderRecipeDetail(); return;
+    }
+    // open base picker
+    const weightIngs=recipe.ingredients.map((ri,idx)=>{
+      const ing=state.ingredients.find(x=>x.id===ri.ingId);
+      const unit=ri.unit||(ing?ing.unit:'');
+      return {ri,ing,idx,unit};
+    }).filter(x=>WEIGHT_UNITS.has(x.unit));
+    if(!weightIngs.length){showToast('No weight-unit ingredients found to use as a base.');return;}
+    document.getElementById('bakers-base-list').innerHTML=weightIngs.map(({ri,ing,idx})=>{
+      const label=(ri.displayName||ing?.name||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
+      const unit=ri.unit||(ing?ing.unit:'');
+      return `<label class="link-option">
+        <input type="radio" name="bakers-base-pick" value="${idx}" ${recipe.bakersBaseIdx===idx?'checked':''}>
+        <div>
+          <div class="link-option-name">${escHtml(label)}</div>
+          <div class="link-option-detail">${ri.amount}${unit}</div>
+        </div>
+      </label>`;
+    }).join('');
+    openModal('bakers-modal');
+  }
+
+  function confirmBakersBase(){
+    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    if(!recipe) return;
+    const picked=document.querySelector('input[name="bakers-base-pick"]:checked');
+    if(!picked){showToast('Please select a base ingredient.');return;}
+    recipe.bakersPct=true;
+    recipe.bakersBaseIdx=parseInt(picked.value);
+    save(); closeModal('bakers-modal'); renderRecipeDetail();
+  }
+
+  function getBakersBase(recipe){
+    if(!recipe.bakersPct||recipe.bakersBaseIdx===undefined) return null;
+    const ri=recipe.ingredients[recipe.bakersBaseIdx];
+    if(!ri) return null;
+    const ing=state.ingredients.find(x=>x.id===ri.ingId);
+    const unit=ri.unit||(ing?ing.unit:'');
+    if(!WEIGHT_UNITS.has(unit)) return null;
+    return {ri,ing,grams:toGrams(ri.amount,unit)};
+  }
+
   function renderRecipeDetail(){
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
     if(!recipe) return;
@@ -907,19 +982,44 @@
       <div class="cost-card"><div class="label">Total cost</div><div class="value">$${totalCost.toFixed(2)}</div></div>
       <div class="cost-card"><div class="label">Per serving</div><div class="value">$${perServing.toFixed(2)}</div><div class="sub">${recipe.servings} servings</div></div>`;
 
+    // baker's % button state
+    const bpBtn=document.getElementById('bakers-pct-btn');
+    const bpLabel=document.getElementById('bakers-pct-base-label');
+    const base=getBakersBase(recipe);
+    if(recipe.bakersPct&&base){
+      bpBtn.classList.add('btn-bakers-active');
+      bpBtn.textContent='% On';
+      const baseName=base.ri.displayName||(base.ing?base.ing.name:base.ri.ghostName)||'?';
+      bpLabel.textContent=`base: ${baseName}`;
+      bpLabel.style.display='';
+    } else {
+      bpBtn.classList.remove('btn-bakers-active');
+      bpBtn.textContent='% Baker\'s';
+      bpLabel.style.display='none';
+    }
+
     const breakdown=document.getElementById('breakdown-list');
     if(!recipe.ingredients.length){
       breakdown.innerHTML='<div class="empty" style="padding:0.75rem 0">No ingredients yet — add some below.</div>';
     } else {
       breakdown.innerHTML=recipe.ingredients.map((ri,idx)=>{
         const ing=state.ingredients.find(x=>x.id===ri.ingId);
+        const displayUnit=ri.unit||(ing?ing.unit:ri.ghostUnit||'');
+        // baker's % calculation
+        let pctBadge='';
+        if(base && idx!==recipe.bakersBaseIdx && WEIGHT_UNITS.has(displayUnit)){
+          const riGrams=toGrams(ri.amount,displayUnit);
+          const pct=(riGrams/base.grams*100);
+          pctBadge=`<span class="pct-badge">${pct%1===0?pct.toFixed(0):pct.toFixed(1)}%</span>`;
+        } else if(base && idx===recipe.bakersBaseIdx){
+          pctBadge=`<span class="pct-badge">100%</span>`;
+        }
         if(ing){
-          const displayUnit=ri.unit||ing.unit;
           const converted=convertAmount(ri.amount,displayUnit,ing.unit);
           const lineCost=ing.costPerUnit*converted;
           const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
           return `<div class="breakdown-row">
-            <span>${escHtml(label)} <span class="breakdown-pct">${ri.amount}${displayUnit}</span></span>
+            <span>${escHtml(label)}${pctBadge} <span class="breakdown-pct">${ri.amount}${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:8px">
               <span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
@@ -929,8 +1029,8 @@
         } else {
           const label=(ri.displayName||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
           return `<div class="breakdown-row">
-            <span style="display:flex;align-items:center;gap:8px">
-              ${escHtml(label)} <span class="breakdown-pct">${ri.amount} ${ri.ghostUnit||''}</span>
+            <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              ${escHtml(label)}${pctBadge} <span class="breakdown-pct">${ri.amount} ${displayUnit}</span>
               <span class="tag tag-pink" style="font-size:10px">no price</span>
             </span>
             <span style="display:flex;align-items:center;gap:8px">

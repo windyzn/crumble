@@ -1129,8 +1129,8 @@
 
   function removeIngredientById(id){
     if(!confirm('Remove this ingredient from your pantry?')) return;
-    state.ingredients=state.ingredients.filter(x=>x.id!==id);
-    state.recipes.forEach(r=>{r.ingredients=r.ingredients.filter(x=>x.ingId!==id);});
+    state.ingredients=state.ingredients.filter(x=>String(x.id)!==String(id));
+    state.recipes.forEach(r=>{r.ingredients=r.ingredients.filter(x=>String(x.ingId)!==String(id));});
     save(); renderPantry();
     if(state.activeRecipeId) renderRecipeDetail();
   }
@@ -1142,7 +1142,7 @@
   }
 
   function openEditIngModalById(id){
-    const ing=state.ingredients.find(x=>x.id===id);
+    const ing=state.ingredients.find(x=>String(x.id)===String(id));
     if(!ing) return;
     document.getElementById('edit-ing-id').value=ing.id;
     document.getElementById('edit-ing-name').value=ing.name;
@@ -1166,7 +1166,7 @@
     const unit=document.getElementById('edit-ing-unit').value;
     const store=toTitleCase(document.getElementById('edit-ing-store').value.trim());
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in all required fields.');return;}
-    const ing=state.ingredients.find(x=>x.id===id);
+    const ing=state.ingredients.find(x=>String(x.id)===String(id));
     if(!ing) return;
     Object.assign(ing,{name,price,qty,unit,store,costPerUnit:price/qty});
     save(); closeModal('edit-ing-modal'); renderPantry();

@@ -667,6 +667,7 @@
         </div>
       </div>
       <div class="modal-actions" style="margin-top:1.25rem">
+        <button class="btn btn-ghost btn-sm" id="vault-sync-btn" onclick="syncFromVault()">↓ Sync now</button>
         <button class="btn btn-primary" onclick="closeModal('vault-modal')">Done</button>
       </div>
     </div>
@@ -988,6 +989,24 @@
     });
   }
 
+  async function syncFromVault() {
+    const meta = getVaultMeta();
+    if (!meta?.vaultKey) return;
+    const btn = document.getElementById('vault-sync-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '↓ Syncing…'; }
+    try {
+      await pullFromSupabase(meta.vaultKey);
+      renderPantry();
+      renderRecipeList();
+      if (btn) { btn.textContent = '✓ Synced!'; }
+      setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '↓ Sync now'; } }, 2500);
+    } catch (err) {
+      console.error(err);
+      if (btn) { btn.disabled = false; btn.textContent = '↓ Sync now'; }
+      showToast('Sync failed — check your connection and try again.', 5000);
+    }
+  }
+
   function updateVaultHeaderBtn() {
     const meta = getVaultMeta();
     const btn = document.getElementById('vault-header-btn');
@@ -996,7 +1015,7 @@
       btn.textContent = '✓ Backed up';
       btn.className = 'vault-header-pill has-vault';
     } else {
-      btn.textContent = '☁️ Back up my recipes';
+      btn.textContent = '☁️ Back up';
       btn.className = 'vault-header-pill no-vault';
     }
   }

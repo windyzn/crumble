@@ -181,6 +181,9 @@
         <span class="card-title">My pantry</span>
         <span id="pantry-count" class="tag tag-pink">0 items</span>
       </div>
+      <div style="margin-bottom:12px">
+        <input type="text" id="pantry-search" placeholder="Search ingredients…" style="width:100%" oninput="renderPantry()">
+      </div>
       <div id="pantry-list"><div class="empty">No ingredients yet — add some above!</div></div>
     </div>
   </div>
@@ -1001,29 +1004,45 @@
     const count=state.ingredients.length;
     document.getElementById('pantry-count').textContent=count+' item'+(count!==1?'s':'');
     if(!count){list.innerHTML='<div class="empty">No ingredients yet — add some above!</div>';return;}
-    list.innerHTML=state.ingredients.map((ing,i)=>`
+
+    const query=(document.getElementById('pantry-search')?.value||'').trim().toLowerCase();
+    const sorted=[...state.ingredients].sort((a,b)=>a.name.localeCompare(b.name));
+    const filtered=query?sorted.filter(ing=>ing.name.toLowerCase().includes(query)||ing.store?.toLowerCase().includes(query)):sorted;
+
+    if(!filtered.length){
+      list.innerHTML='<div class="empty">No ingredients match your search.</div>';
+      return;
+    }
+
+    list.innerHTML=filtered.map(ing=>`
       <div class="ingredient-row">
         <div style="flex:1;min-width:140px">
           <div class="ing-name">${escHtml(ing.name)}</div>
           <div class="ing-detail">${ing.store?`<span class="tag tag-green" style="margin-right:6px">${escHtml(ing.store)}</span>`:''} $${ing.price.toFixed(2)} for ${ing.qty}${ing.unit}</div>
         </div>
         <div class="ing-cost">$${ing.costPerUnit.toFixed(2)} / ${ing.unit}</div>
-        <button class="btn btn-edit" onclick="openEditIngModal(${i})">Edit</button>
-        <button class="btn btn-danger" onclick="removeIngredient(${i})">Remove</button>
+        <button class="btn btn-edit" onclick="openEditIngModalById('${ing.id}')">Edit</button>
+        <button class="btn btn-danger" onclick="removeIngredientById('${ing.id}')">Remove</button>
       </div>`).join('');
   }
 
-  function removeIngredient(i){
+  function removeIngredientById(id){
     if(!confirm('Remove this ingredient from your pantry?')) return;
-    const id=state.ingredients[i].id;
-    state.ingredients.splice(i,1);
-    state.recipes.forEach(r=>{r.ingredients=r.ingredients.filter(x=>x.ingId!==id||x.ingId===null);});
+    state.ingredients=state.ingredients.filter(x=>x.id!==id);
+    state.recipes.forEach(r=>{r.ingredients=r.ingredients.filter(x=>x.ingId!==id);});
     save(); renderPantry();
     if(state.activeRecipeId) renderRecipeDetail();
   }
 
-  function openEditIngModal(i){
+  // Keep old index-based version for any legacy callers, delegate to ID version
+  function removeIngredient(i){
     const ing=state.ingredients[i];
+    if(ing) removeIngredientById(ing.id);
+  }
+
+  function openEditIngModalById(id){
+    const ing=state.ingredients.find(x=>x.id===id);
+    if(!ing) return;
     document.getElementById('edit-ing-id').value=ing.id;
     document.getElementById('edit-ing-name').value=ing.name;
     document.getElementById('edit-ing-price').value=ing.price;
@@ -1031,6 +1050,11 @@
     document.getElementById('edit-ing-unit').value=ing.unit;
     document.getElementById('edit-ing-store').value=ing.store||'';
     openModal('edit-ing-modal');
+  }
+
+  function openEditIngModal(i){
+    const ing=state.ingredients[i];
+    if(ing) openEditIngModalById(ing.id);
   }
 
   function saveIngredientEdit(){

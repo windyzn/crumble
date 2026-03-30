@@ -1328,7 +1328,7 @@
   function skipMissing(){closeModal('missing-modal');applyMatchedIngredients(_pendingMatched,_pendingMissing);}
 
   function applyMatchedIngredients(list,ghosts){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const skipped=[];
     (list||_pendingMatched).forEach(({parsed,ing})=>{
@@ -1370,7 +1370,7 @@
     if(!state.recipes.length){el.innerHTML='<div class="empty">No recipes yet — create your first!</div>';return;}
     el.innerHTML=state.recipes.map(r=>{
       const cost=calcRecipeCost(r);
-      return `<div class="recipe-pill" onclick="openRecipeDetail(${r.id})">
+      return `<div class="recipe-pill" onclick="openRecipeDetail('${r.id}')">
         <div>
           <div class="recipe-pill-name">${escHtml(r.name)}</div>
           <div class="recipe-pill-meta">${r.servings} serving${r.servings!==1?'s':''} &middot; ${r.ingredients.length} ingredient${r.ingredients.length!==1?'s':''}</div>
@@ -1385,7 +1385,7 @@
 
   function deleteRecipe(id){
     if(!confirm('Delete this recipe? This cannot be undone.')) return;
-    state.recipes=state.recipes.filter(r=>r.id!==id);
+    state.recipes=state.recipes.filter(r=>String(r.id)!==String(id));
     save(); closeRecipeDetail();
   }
 
@@ -1443,7 +1443,7 @@
   }
 
   function changeScale(delta){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const current=recipe.scale||1;
     const next=Math.max(0.5,Math.round((current+delta)*4)/4);
@@ -1452,14 +1452,14 @@
   }
 
   function resetScale(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     recipe.scale=1;
     save(); renderRecipeDetail();
   }
 
   function toggleBakersPct(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     if(recipe.bakersPct){
       recipe.bakersPct=false;
@@ -1488,7 +1488,7 @@
   }
 
   function confirmBakersBase(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const picked=document.querySelector('input[name="bakers-base-pick"]:checked');
     if(!picked){showToast('Please select a base ingredient.');return;}
@@ -1508,7 +1508,7 @@
   }
 
   function renderRecipeDetail(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const scale=recipe.scale||1;
     const totalCost=calcRecipeCost(recipe)*scale;
@@ -1527,8 +1527,8 @@
         <div style="font-size:13px;color:var(--muted);margin-top:3px">${metaParts.join(' &middot; ')}</div>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-edit" onclick="openEditRecipeModal(${recipe.id})">Edit</button>
-        <button class="btn btn-danger" onclick="deleteRecipe(${recipe.id})">Delete</button>
+        <button class="btn btn-edit" onclick="openEditRecipeModal('${recipe.id}')">Edit</button>
+        <button class="btn btn-danger" onclick="deleteRecipe('${recipe.id}')">Delete</button>
       </div>`;
 
     document.getElementById('scale-display').textContent=scale===1?'1×':(scale%1===0?scale+'×':scale.toFixed(2)+'×');
@@ -1608,7 +1608,7 @@
   }
 
   function removeRecipeIng(idx){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     recipe.ingredients.splice(idx,1);
     save(); renderRecipeDetail();
@@ -1627,7 +1627,7 @@
   }
 
   function toggleInstructionsEdit(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     const editArea=document.getElementById('instructions-edit-area');
     const display=document.getElementById('instructions-display');
     const btn=document.getElementById('instructions-edit-btn');
@@ -1648,14 +1648,14 @@
   }
 
   function saveInstructions(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     recipe.instructions=document.getElementById('instructions-input').value;
     save(); cancelInstructionsEdit(); renderInstructions(recipe);
   }
 
   function openEditRecipeModal(id){
-    const recipe=state.recipes.find(r=>r.id===id);
+    const recipe=state.recipes.find(r=>String(r.id)===String(id));
     if(!recipe) return;
     document.getElementById('edit-recipe-id').value=recipe.id;
     document.getElementById('edit-recipe-name').value=recipe.name;
@@ -1674,7 +1674,7 @@
     const temp=document.getElementById('edit-recipe-temp').value.trim();
     const cookTime=document.getElementById('edit-recipe-time').value.trim();
     if(!name||isNaN(servings)||servings<1){alert('Please enter a name and number of servings.');return;}
-    const recipe=state.recipes.find(r=>r.id===id);
+    const recipe=state.recipes.find(r=>String(r.id)===String(id));
     if(!recipe) return;
     Object.assign(recipe,{name,servings,yieldDesc,temp,cookTime});
     save(); closeModal('edit-recipe-modal'); renderRecipeDetail(); renderRecipeList();
@@ -1698,7 +1698,7 @@
   }
 
   function openEditRecipeIngModal(idx){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const ri=recipe.ingredients[idx];
     const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
@@ -1754,7 +1754,7 @@
   }
 
   function saveRecipeIngEdit(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const idx=parseInt(document.getElementById('edit-ri-idx').value);
     const amount=parseFloat(document.getElementById('edit-ri-amount').value);
@@ -1777,7 +1777,7 @@
   }
 
   function saveRiLinkEdit(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const idx=parseInt(document.getElementById('edit-ri-idx').value);
     const ri=recipe.ingredients[idx];
@@ -1817,7 +1817,7 @@
   }
 
   function renderPricing(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const totalCost=calcRecipeCost(recipe);
     const servings=recipe.servings||1;

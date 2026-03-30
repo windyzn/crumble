@@ -125,6 +125,11 @@
     .vault-error { font-size:12px; color:#A32D2D; margin-top:5px; min-height:16px; }
     .vault-panel { background:var(--cream); border:0.5px solid var(--border-strong); border-radius:12px; padding:14px 16px; margin-top:1rem; }
     .vault-panel-title { font-size:12px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
+    .vault-header-pill { display:inline-flex; align-items:center; gap:6px; padding:7px 16px; border-radius:20px; font-size:13px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; transition:all 0.15s; }
+    .vault-header-pill.no-vault { background:var(--pink-light); border:1.5px solid var(--pink-mid); color:var(--pink-dark); }
+    .vault-header-pill.no-vault:hover { background:var(--pink); }
+    .vault-header-pill.has-vault { background:var(--green-light); border:1.5px solid var(--green-mid); color:var(--green-dark); }
+    .vault-header-pill.has-vault:hover { background:var(--green); }
   </style>
 </head>
 <body>
@@ -133,12 +138,9 @@
     <div class="petal-bar">&#x1F35E; &#x1F370; &#x1F950;</div>
     <h1>Crumble</h1>
     <p>Track the true cost of every bake</p>
-    <div style="margin-top:10px">
-      <button id="vault-header-btn" onclick="openVaultModal()"
-        style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 8px;border-radius:7px;transition:background 0.15s"
-        onmouseover="this.style.background='var(--pink-light)'"
-        onmouseout="this.style.background='none'">
-        🔑 Set up vault
+    <div style="margin-top:12px">
+      <button id="vault-header-btn" onclick="handleVaultBtnClick()" class="vault-header-pill">
+        ☁️ Back up my recipes
       </button>
     </div>
   </div>
@@ -624,21 +626,51 @@
 <!-- MY VAULT MODAL -->
 <div class="modal-bg" id="vault-modal">
   <div class="modal">
-    <div class="modal-title">My vault</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:1rem">Use your vault key + PIN to load your recipes on a new device.</p>
-    <div class="vault-panel">
-      <div class="vault-panel-title">Your vault key</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="vault-key-display" id="vault-modal-key" style="flex:1"></div>
-        <button class="btn btn-ghost btn-sm" onclick="copyVaultKey()">Copy</button>
+
+    <!-- State: no vault set up yet -->
+    <div id="vault-modal-unset">
+      <div style="text-align:center;font-size:32px;margin-bottom:0.75rem">☁️</div>
+      <div class="modal-title" style="text-align:center">Back up your recipes</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1.25rem;text-align:center;line-height:1.6">
+        Create a vault to save your pantry and recipes to the cloud — so you never lose them and can access them on any device.
+      </p>
+      <button class="btn btn-primary" style="width:100%;padding:11px;font-size:14px" onclick="closeModal('vault-modal'); showVaultSetup()">
+        Set up my vault →
+      </button>
+      <div style="text-align:center;margin-top:10px">
+        <button onclick="closeModal('vault-modal')" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">
+          Maybe later
+        </button>
       </div>
     </div>
-    <div style="margin-top:1rem;font-size:12px;color:var(--muted);line-height:1.6">
-      Keep your vault key somewhere safe — it's the only way to recover your data on a new device.
+
+    <!-- State: vault is set up -->
+    <div id="vault-modal-set" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
+        <div style="font-size:24px">☁️</div>
+        <div>
+          <div class="modal-title" style="margin-bottom:2px">My vault</div>
+          <div style="font-size:12px;color:var(--green-dark);font-weight:500">✓ Recipes are backed up</div>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:1rem;line-height:1.6">
+        Use your vault key + PIN to load your recipes on any new device.
+      </p>
+      <div class="vault-panel">
+        <div class="vault-panel-title">Your vault key</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="vault-key-display" id="vault-modal-key" style="flex:1"></div>
+          <button class="btn btn-green btn-sm" id="vault-copy-btn" onclick="copyVaultKey()">Copy</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">
+          📱 On a new device: open Crumble, enter this key + your PIN when prompted.
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:1.25rem">
+        <button class="btn btn-primary" onclick="closeModal('vault-modal')">Done</button>
+      </div>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" onclick="closeModal('vault-modal')">Done</button>
-    </div>
+
   </div>
 </div>
 
@@ -821,7 +853,7 @@
       setVaultMeta({ vaultKey: key, verified: true });
       document.getElementById('vault-setup-screen').style.display = 'none';
       updateVaultHeaderBtn();
-      showToast('Vault created! Your key: ' + key);
+      openVaultModal(); // show the key immediately so user can note it down
     } catch (err) {
       console.error(err);
       setVaultError('setup-pin-error', 'Something went wrong — please try again.');
@@ -862,7 +894,7 @@
       updateVaultHeaderBtn();
       renderPantry();
       renderRecipeList();
-      showToast('Vault loaded — welcome back!');
+      showToast('✓ Vault loaded — welcome back!');
     } catch (err) {
       console.error(err);
       setVaultError('verify-error', 'Something went wrong — please try again.');
@@ -875,17 +907,51 @@
   }
 
   // ── My vault modal ─────────────────────────────────────────────────────
+  function handleVaultBtnClick() {
+    const meta = getVaultMeta();
+    if (meta?.vaultKey) {
+      openVaultModal();
+    } else {
+      showVaultSetup();
+    }
+  }
+
+  function showVaultSetup() {
+    const suggested = generateVaultKey();
+    document.getElementById('setup-vault-key').value = suggested;
+    // clear any previous errors/values
+    document.getElementById('setup-pin').value = '';
+    document.getElementById('setup-pin-confirm').value = '';
+    clearVaultError('setup-key-error');
+    clearVaultError('setup-pin-error');
+    const btn = document.querySelector('#vault-setup-screen .btn-primary');
+    if (btn) { btn.disabled = false; btn.textContent = 'Set up my vault →'; }
+    document.getElementById('vault-setup-screen').style.display = 'flex';
+  }
+
   function openVaultModal() {
     const meta = getVaultMeta();
-    document.getElementById('vault-modal-key').textContent = meta?.vaultKey || '—';
+    const hasVault = !!meta?.vaultKey;
+    document.getElementById('vault-modal-unset').style.display = hasVault ? 'none' : 'block';
+    document.getElementById('vault-modal-set').style.display  = hasVault ? 'block' : 'none';
+    if (hasVault) {
+      document.getElementById('vault-modal-key').textContent = meta.vaultKey;
+      const copyBtn = document.getElementById('vault-copy-btn');
+      if (copyBtn) { copyBtn.textContent = 'Copy'; copyBtn.disabled = false; }
+    }
     openModal('vault-modal');
   }
 
   function copyVaultKey() {
     const key = document.getElementById('vault-modal-key').textContent;
-    if (key && key !== '—') {
-      navigator.clipboard.writeText(key).then(() => showToast('Vault key copied!'));
-    }
+    if (!key || key === '—') return;
+    navigator.clipboard.writeText(key).then(() => {
+      const btn = document.getElementById('vault-copy-btn');
+      if (btn) { btn.textContent = '✓ Copied!'; btn.disabled = true; }
+      setTimeout(() => {
+        if (btn) { btn.textContent = 'Copy'; btn.disabled = false; }
+      }, 2500);
+    });
   }
 
   function updateVaultHeaderBtn() {
@@ -893,11 +959,11 @@
     const btn = document.getElementById('vault-header-btn');
     if (!btn) return;
     if (meta?.vaultKey) {
-      btn.textContent = '🔑 ' + meta.vaultKey;
-      btn.style.color = 'var(--pink-dark)';
+      btn.textContent = '✓ ' + meta.vaultKey;
+      btn.className = 'vault-header-pill has-vault';
     } else {
-      btn.textContent = '🔑 Set up vault';
-      btn.style.color = 'var(--muted)';
+      btn.textContent = '☁️ Back up my recipes';
+      btn.className = 'vault-header-pill no-vault';
     }
   }
 
@@ -905,11 +971,11 @@
   (function initVault() {
     const meta = getVaultMeta();
     if (!meta || (!meta.vaultKey && !meta.skipped)) {
-      const suggested = generateVaultKey();
-      document.getElementById('setup-vault-key').value = suggested;
-      document.getElementById('vault-setup-screen').style.display = 'flex';
+      showVaultSetup();
     } else if (meta.vaultKey && !meta.verified) {
       document.getElementById('verify-vault-key').value = meta.vaultKey;
+      document.getElementById('verify-pin').value = '';
+      clearVaultError('verify-error');
       document.getElementById('vault-verify-screen').style.display = 'flex';
     }
     updateVaultHeaderBtn();

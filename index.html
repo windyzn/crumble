@@ -249,49 +249,7 @@
         <div id="breakdown-list"></div>
         <div class="divider"></div>
         <div class="section-title">Add ingredient</div>
-        <div class="form-row" style="margin-top:4px">
-          <div class="form-group" style="flex:2;min-width:140px">
-            <label>Ingredient</label>
-            <select id="recipe-ing-select" style="width:100%"></select>
-          </div>
-          <div class="form-group"><label>Amount used</label><input type="number" id="recipe-ing-amount" placeholder="250" min="0" step="any"></div>
-          <div class="form-group" style="align-self:flex-end"><button class="btn btn-ghost" onclick="addIngredientToRecipe()">Add</button></div>
-        </div>
-        <div id="new-pantry-inline-area" style="display:none;margin-top:10px;background:var(--pink-light);border-radius:12px;padding:12px">
-          <div style="font-size:12px;font-weight:500;color:var(--pink-dark);margin-bottom:8px">New pantry ingredient</div>
-          <div class="form-row" style="margin-bottom:8px">
-            <div class="form-group" style="flex:2;min-width:120px">
-              <label>Name</label>
-              <input type="text" id="inline-ing-name" placeholder="e.g. Vanilla extract" style="width:100%">
-            </div>
-            <div class="form-group"><label>Store price ($)</label><input type="number" id="inline-ing-price" placeholder="3.50" min="0" step="0.01"></div>
-            <div class="form-group"><label>Package size</label><input type="number" id="inline-ing-qty" placeholder="100" min="0" step="any"></div>
-            <div class="form-group"><label>Pantry unit</label>
-              <select id="inline-ing-unit">
-                <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
-                <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
-                <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row" style="margin-bottom:8px">
-            <div class="form-group"><label>Amount used in recipe</label><input type="number" id="inline-ing-amount" placeholder="5" min="0" step="any"></div>
-            <div class="form-group"><label>Recipe unit</label>
-              <select id="inline-ing-recipe-unit">
-                <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
-                <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
-                <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex:2;min-width:120px"><label>Store / brand <em>(optional)</em></label><input type="text" id="inline-ing-store" placeholder="e.g. Nielsen-Massey" style="width:100%"></div>
-          </div>
-          <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn btn-ghost btn-sm" onclick="toggleNewPantryInline(false)">Cancel</button>
-            <button class="btn btn-primary btn-sm" onclick="addNewPantryAndLink()">Add to pantry &amp; recipe</button>
-          </div>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="toggleNewPantryInline()" style="margin-top:6px;font-size:12px;color:var(--pink-dark);border-color:var(--pink)">+ New pantry ingredient</button>
-        <button class="btn btn-primary" onclick="openPasteModal()" style="width:100%;margin-top:8px">&#128203; Paste ingredient list</button>
+        <button class="btn btn-primary" onclick="openPasteModal()" style="width:100%;margin-top:4px">&#9998; Enter ingredients</button>
         <div class="divider"></div>
         <div class="section-row">
           <div class="section-title">Method <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional)</span></div>
@@ -1124,6 +1082,7 @@
         <div class="ing-cost">$${ing.costPerUnit.toFixed(2)} / ${ing.unit}</div>
         <button class="btn btn-edit" onclick="openEditIngModalById('${ing.id}')">Edit</button>
         <button class="btn btn-danger" onclick="removeIngredientById('${ing.id}')">Remove</button>
+        <button class="btn btn-edit" onclick="duplicateIngredient('${ing.id}')" title="Duplicate">⧉ Copy</button>
       </div>`).join('');
   }
 
@@ -1139,6 +1098,15 @@
   function removeIngredient(i){
     const ing=state.ingredients[i];
     if(ing) removeIngredientById(ing.id);
+  }
+
+  function duplicateIngredient(id){
+    const ing=state.ingredients.find(x=>String(x.id)===String(id));
+    if(!ing) return;
+    const copy={...ing, id:crypto.randomUUID(), name:ing.name+' (copy)'};
+    state.ingredients.push(copy);
+    save(); renderPantry();
+    showToast('Duplicated — edit the copy to rename it.');
   }
 
   function openEditIngModalById(id){
@@ -1440,7 +1408,7 @@
   function calcRecipeCost(recipe){
     return recipe.ingredients.reduce((sum,ri)=>{
       if(ri.includeCost===false) return sum;
-      const ing=state.ingredients.find(x=>x.id===ri.ingId);
+      const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
       if(!ing) return sum;
       const riUnit=ri.unit||ing.unit;
       const converted=convertAmount(ri.amount,riUnit,ing.unit);
@@ -1495,7 +1463,7 @@
     }
     // open base picker
     const weightIngs=recipe.ingredients.map((ri,idx)=>{
-      const ing=state.ingredients.find(x=>x.id===ri.ingId);
+      const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
       const unit=ri.unit||(ing?ing.unit:'');
       return {ri,ing,idx,unit};
     }).filter(x=>WEIGHT_UNITS.has(x.unit));
@@ -1528,7 +1496,7 @@
     if(!recipe.bakersPct||recipe.bakersBaseIdx===undefined) return null;
     const ri=recipe.ingredients[recipe.bakersBaseIdx];
     if(!ri) return null;
-    const ing=state.ingredients.find(x=>x.id===ri.ingId);
+    const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
     const unit=ri.unit||(ing?ing.unit:'');
     if(!WEIGHT_UNITS.has(unit)) return null;
     return {ri,ing,grams:toGrams(ri.amount,unit)};
@@ -1587,7 +1555,7 @@
       breakdown.innerHTML='<div class="empty" style="padding:0.75rem 0">No ingredients yet — add some below.</div>';
     } else {
       breakdown.innerHTML=recipe.ingredients.map((ri,idx)=>{
-        const ing=state.ingredients.find(x=>x.id===ri.ingId);
+        const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
         const displayUnit=ri.unit||(ing?ing.unit:ri.ghostUnit||'');
         const scaledAmount=ri.amount*scale;
         const displayAmount=scaledAmount%1===0?scaledAmount.toFixed(0):(Math.round(scaledAmount*100)/100).toString();
@@ -1631,53 +1599,7 @@
       }).join('');
     }
 
-    const sel=document.getElementById('recipe-ing-select');
-    if(state.ingredients.length){
-      sel.innerHTML=state.ingredients.map(ing=>`<option value="${ing.id}">${escHtml(ing.name)} ($${ing.costPerUnit.toFixed(2)}/${ing.unit})</option>`).join('');
-      sel.disabled=false;
-    } else {
-      sel.innerHTML='<option disabled selected>Add ingredients to your pantry first</option>';
-      sel.disabled=true;
-    }
-
     renderInstructions(recipe);
-  }
-
-  function toggleNewPantryInline(forceState){
-    const area=document.getElementById('new-pantry-inline-area');
-    const open=forceState!==undefined?forceState:area.style.display==='none';
-    area.style.display=open?'block':'none';
-    if(open) document.getElementById('inline-ing-name').focus();
-  }
-
-  function addNewPantryAndLink(){
-    const name=document.getElementById('inline-ing-name').value.trim();
-    const price=parseFloat(document.getElementById('inline-ing-price').value);
-    const qty=parseFloat(document.getElementById('inline-ing-qty').value);
-    const pantryUnit=document.getElementById('inline-ing-unit').value;
-    const amount=parseFloat(document.getElementById('inline-ing-amount').value);
-    const recipeUnit=document.getElementById('inline-ing-recipe-unit').value;
-    const store=toTitleCase(document.getElementById('inline-ing-store').value.trim());
-    if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in name, store price, and package amount.');return;}
-    if(isNaN(amount)||amount<=0){alert('Please enter an amount used in the recipe.');return;}
-    const ing=addIngredient({name,price,qty,unit:pantryUnit,store});
-    if(!ing) return;
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
-    if(recipe) recipe.ingredients.push({ingId:ing.id,amount,unit:recipeUnit});
-    save(); renderPantry(); renderRecipeDetail();
-    toggleNewPantryInline(false);
-    ['inline-ing-name','inline-ing-price','inline-ing-qty','inline-ing-amount','inline-ing-store'].forEach(id=>document.getElementById(id).value='');
-  }
-
-  function addIngredientToRecipe(){
-    const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
-    if(!recipe) return;
-    const ingId=document.getElementById('recipe-ing-select').value;
-    const amount=parseFloat(document.getElementById('recipe-ing-amount').value);
-    if(!ingId||isNaN(amount)||amount<=0){alert('Select an ingredient and enter a valid amount.');return;}
-    recipe.ingredients.push({ingId,amount});
-    document.getElementById('recipe-ing-amount').value='';
-    save(); renderRecipeDetail();
   }
 
   function removeRecipeIng(idx){
@@ -1774,7 +1696,7 @@
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
     if(!recipe) return;
     const ri=recipe.ingredients[idx];
-    const ing=state.ingredients.find(x=>x.id===ri.ingId);
+    const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
     document.getElementById('edit-ri-idx').value=idx;
     const baseName=ing?ing.name:(ri.ghostName||'Unknown');
     const displayName=ri.displayName||baseName;

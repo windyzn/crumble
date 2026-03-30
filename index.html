@@ -589,7 +589,8 @@
         oninput="clearVaultError('setup-pin-error')">
     </div>
     <button class="btn btn-primary" style="width:100%;padding:11px" onclick="submitVaultSetup()">Set up my vault →</button>
-    <div style="text-align:center;margin-top:12px">
+    <div style="text-align:center;margin-top:12px;display:flex;flex-direction:column;gap:8px">
+      <button onclick="switchToVerifyScreen()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500">Already have a vault key? Load it here →</button>
       <button onclick="skipVaultSetup()" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">Skip for now — use local storage only</button>
     </div>
   </div>
@@ -615,7 +616,8 @@
       <div class="vault-error" id="verify-error"></div>
     </div>
     <button class="btn btn-primary" style="width:100%;padding:11px" onclick="submitVaultVerify()">Load my recipes →</button>
-    <div style="text-align:center;margin-top:12px">
+    <div style="text-align:center;margin-top:12px;display:flex;flex-direction:column;gap:8px">
+      <button onclick="switchToSetupScreen()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500">← New to Crumble? Create a vault instead</button>
       <button onclick="skipVaultVerify()" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">Use this device without syncing</button>
     </div>
   </div>
@@ -910,8 +912,22 @@
     if (meta?.vaultKey) {
       openVaultModal();
     } else {
+      // Show setup screen — user can switch to verify from there
       showVaultSetup();
     }
+  }
+
+  function switchToVerifyScreen() {
+    document.getElementById('vault-setup-screen').style.display = 'none';
+    document.getElementById('verify-vault-key').value = '';
+    document.getElementById('verify-pin').value = '';
+    clearVaultError('verify-error');
+    document.getElementById('vault-verify-screen').style.display = 'flex';
+  }
+
+  function switchToSetupScreen() {
+    document.getElementById('vault-verify-screen').style.display = 'none';
+    showVaultSetup();
   }
 
   function showVaultSetup() {

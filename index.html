@@ -125,11 +125,11 @@
     .vault-error { font-size:12px; color:#A32D2D; margin-top:5px; min-height:16px; }
     .vault-panel { background:var(--cream); border:0.5px solid var(--border-strong); border-radius:12px; padding:14px 16px; margin-top:1rem; }
     .vault-panel-title { font-size:12px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
-    .vault-header-pill { display:inline-flex; align-items:center; gap:6px; padding:7px 16px; border-radius:20px; font-size:13px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; transition:all 0.15s; }
-    .vault-header-pill.no-vault { background:var(--pink-light); border:1.5px solid var(--pink-mid); color:var(--pink-dark); }
-    .vault-header-pill.no-vault:hover { background:var(--pink); }
-    .vault-header-pill.has-vault { background:var(--green-light); border:1.5px solid var(--green-mid); color:var(--green-dark); }
-    .vault-header-pill.has-vault:hover { background:var(--green); }
+    .vault-header-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:7px; font-size:12px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+    .vault-header-pill.no-vault { background:none; border:0.5px solid var(--pink); color:var(--pink-dark); }
+    .vault-header-pill.no-vault:hover { background:var(--pink-light); }
+    .vault-header-pill.has-vault { background:none; border:0.5px solid var(--green-mid); color:var(--green-dark); }
+    .vault-header-pill.has-vault:hover { background:var(--green-light); }
   </style>
 </head>
 <body>
@@ -138,15 +138,13 @@
     <div class="petal-bar">&#x1F35E; &#x1F370; &#x1F950;</div>
     <h1>Crumble</h1>
     <p>Track the true cost of every bake</p>
-    <div style="margin-top:12px">
-      <button id="vault-header-btn" onclick="handleVaultBtnClick()" class="vault-header-pill">
-        ☁️ Back up my recipes
-      </button>
-    </div>
   </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('pantry',this)">Pantry</button>
     <button class="tab" onclick="switchTab('recipes',this)">Recipes</button>
+    <button id="vault-header-btn" onclick="handleVaultBtnClick()" class="vault-header-pill no-vault" style="margin-left:auto;margin-bottom:6px;align-self:center">
+      ☁️ Back up
+    </button>
   </div>
 
   <!-- PANTRY -->
@@ -959,7 +957,7 @@
     const btn = document.getElementById('vault-header-btn');
     if (!btn) return;
     if (meta?.vaultKey) {
-      btn.textContent = '✓ ' + meta.vaultKey;
+      btn.textContent = '✓ Backed up';
       btn.className = 'vault-header-pill has-vault';
     } else {
       btn.textContent = '☁️ Back up my recipes';

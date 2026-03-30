@@ -243,7 +243,7 @@
           <div class="section-title">Ingredient breakdown</div>
           <div style="display:flex;align-items:center;gap:8px">
             <span id="bakers-pct-base-label" style="font-size:11px;color:var(--muted);display:none"></span>
-            <button id="bakers-pct-btn" class="btn btn-ghost btn-sm" onclick="toggleBakersPct()" style="font-size:11px">% Baker's</button>
+            <button id="bakers-pct-btn" class="btn btn-ghost btn-sm" onclick="toggleBakersPct()" style="font-size:11px">Baker %</button>
           </div>
         </div>
         <div id="breakdown-list"></div>
@@ -1545,13 +1545,13 @@
     const scaledBase=base?{...base,grams:base.grams*scale}:null;
     if(recipe.bakersPct&&base){
       bpBtn.classList.add('btn-bakers-active');
-      bpBtn.textContent='% On';
+      bpBtn.textContent='Baker % On';
       const baseName=base.ri.displayName||(base.ing?base.ing.name:base.ri.ghostName)||'?';
       bpLabel.textContent=`base: ${baseName}`;
       bpLabel.style.display='';
     } else {
       bpBtn.classList.remove('btn-bakers-active');
-      bpBtn.textContent='% Baker\'s';
+      bpBtn.textContent='Baker %';
       bpLabel.style.display='none';
     }
 

@@ -7,6 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>🍞</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -115,6 +116,15 @@
     .link-option input[type=radio] { accent-color:var(--pink-dark); width:15px; height:15px; flex-shrink:0; cursor:pointer; }
     .link-option-name { font-size:13px; font-weight:500; }
     .link-option-detail { font-size:11px; color:var(--muted); }
+    /* Vault screens */
+    .vault-screen { position:fixed; inset:0; background:var(--cream); z-index:300; display:flex; align-items:center; justify-content:center; padding:1rem; }
+    .vault-card { background:var(--white); border:0.5px solid var(--border-strong); border-radius:20px; padding:2rem; width:min(480px,92vw); box-shadow:0 8px 40px rgba(0,0,0,0.1); }
+    .vault-card h2 { font-family:'Poppins',sans-serif; font-size:1.3rem; font-weight:700; margin-bottom:0.35rem; }
+    .vault-card p { font-size:13px; color:var(--muted); margin-bottom:1.4rem; line-height:1.6; }
+    .vault-key-display { font-family:monospace; font-size:1.05rem; background:var(--pink-light); color:var(--pink-dark); border-radius:10px; padding:10px 14px; letter-spacing:0.5px; word-break:break-all; }
+    .vault-error { font-size:12px; color:#A32D2D; margin-top:5px; min-height:16px; }
+    .vault-panel { background:var(--cream); border:0.5px solid var(--border-strong); border-radius:12px; padding:14px 16px; margin-top:1rem; }
+    .vault-panel-title { font-size:12px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
   </style>
 </head>
 <body>
@@ -123,6 +133,14 @@
     <div class="petal-bar">&#x1F35E; &#x1F370; &#x1F950;</div>
     <h1>Crumble</h1>
     <p>Track the true cost of every bake</p>
+    <div style="margin-top:10px">
+      <button id="vault-header-btn" onclick="openVaultModal()"
+        style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 8px;border-radius:7px;transition:background 0.15s"
+        onmouseover="this.style.background='var(--pink-light)'"
+        onmouseout="this.style.background='none'">
+        🔑 Set up vault
+      </button>
+    </div>
   </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('pantry',this)">Pantry</button>
@@ -534,11 +552,412 @@
   </div>
 </div>
 
+
 <div id="toast" class="toast"></div>
 
+<!-- VAULT SETUP SCREEN (first visit) -->
+<div class="vault-screen" id="vault-setup-screen" style="display:none">
+  <div class="vault-card">
+    <div style="text-align:center;font-size:28px;margin-bottom:0.75rem">🔑</div>
+    <h2>Set up your vault</h2>
+    <p>Your vault key lets you access your recipes on any device. We suggested one below — feel free to make it your own.</p>
+    <div class="form-group" style="margin-bottom:14px">
+      <label style="display:flex;justify-content:space-between;align-items:center">
+        Vault key
+        <button onclick="refreshVaultKeySuggestion()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">↻ Suggest another</button>
+      </label>
+      <input type="text" id="setup-vault-key" placeholder="e.g. butter-meets-flour"
+        style="width:100%;font-family:monospace;font-size:0.95rem;letter-spacing:0.3px"
+        oninput="clearVaultError('setup-key-error')">
+      <div class="vault-error" id="setup-key-error"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Lowercase letters, numbers, and hyphens only.</div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>PIN <span style="font-weight:300;font-style:italic">(4–8 digits)</span></label>
+      <input type="password" inputmode="numeric" maxlength="8" id="setup-pin"
+        style="width:140px;letter-spacing:4px;font-size:1rem"
+        oninput="clearVaultError('setup-pin-error')">
+      <div class="vault-error" id="setup-pin-error"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:1.4rem">
+      <label>Confirm PIN</label>
+      <input type="password" inputmode="numeric" maxlength="8" id="setup-pin-confirm"
+        style="width:140px;letter-spacing:4px;font-size:1rem"
+        oninput="clearVaultError('setup-pin-error')">
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:11px" onclick="submitVaultSetup()">Set up my vault →</button>
+    <div style="text-align:center;margin-top:12px">
+      <button onclick="skipVaultSetup()" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">Skip for now — use local storage only</button>
+    </div>
+  </div>
+</div>
+
+<!-- VAULT VERIFY SCREEN (returning device) -->
+<div class="vault-screen" id="vault-verify-screen" style="display:none">
+  <div class="vault-card">
+    <div style="text-align:center;font-size:28px;margin-bottom:0.75rem">🔑</div>
+    <h2>Welcome back</h2>
+    <p>Enter your vault key and PIN to load your recipes on this device.</p>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Vault key</label>
+      <input type="text" id="verify-vault-key" placeholder="e.g. butter-meets-flour"
+        style="width:100%;font-family:monospace;font-size:0.95rem;letter-spacing:0.3px"
+        oninput="clearVaultError('verify-error')">
+    </div>
+    <div class="form-group" style="margin-bottom:1.4rem">
+      <label>PIN</label>
+      <input type="password" inputmode="numeric" maxlength="8" id="verify-pin"
+        style="width:140px;letter-spacing:4px;font-size:1rem"
+        oninput="clearVaultError('verify-error')">
+      <div class="vault-error" id="verify-error"></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:11px" onclick="submitVaultVerify()">Load my recipes →</button>
+    <div style="text-align:center;margin-top:12px">
+      <button onclick="skipVaultVerify()" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">Use this device without syncing</button>
+    </div>
+  </div>
+</div>
+
+<!-- MY VAULT MODAL -->
+<div class="modal-bg" id="vault-modal">
+  <div class="modal">
+    <div class="modal-title">My vault</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:1rem">Use your vault key + PIN to load your recipes on a new device.</p>
+    <div class="vault-panel">
+      <div class="vault-panel-title">Your vault key</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="vault-key-display" id="vault-modal-key" style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" onclick="copyVaultKey()">Copy</button>
+      </div>
+    </div>
+    <div style="margin-top:1rem;font-size:12px;color:var(--muted);line-height:1.6">
+      Keep your vault key somewhere safe — it's the only way to recover your data on a new device.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeModal('vault-modal')">Done</button>
+    </div>
+  </div>
+</div>
+
 <script>
+  // ── Supabase client ────────────────────────────────────────────────────
+  const SUPABASE_URL  = 'https://brdwzmymnshcuuanvlpv.supabase.co';
+  const SUPABASE_ANON = 'sb_publishable_KtuXqC3as4pwLPFb5DNpZA_5dRajPf2';
+  const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  // Returns a Supabase client with the vault key injected as a custom header
+  // so RLS policies can filter rows by vault_key.
+  function sbWithKey(vaultKey) {
+    return supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      global: { headers: { 'x-vault-key': vaultKey } }
+    });
+  }
+
+  // ── PIN hashing (Web Crypto API — no library needed) ───────────────────
+  async function hashPin(pin) {
+    const buf = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(pin)
+    );
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function verifyPin(pin, storedHash) {
+    return await hashPin(pin) === storedHash;
+  }
+
+  // ── Supabase data helpers ──────────────────────────────────────────────
+
+  // Push entire local state up to Supabase (upsert strategy)
+  async function pushToSupabase(vaultKey) {
+    const sb = sbWithKey(vaultKey);
+
+    // Upsert pantry items
+    if (state.ingredients.length) {
+      const rows = state.ingredients.map(ing => ({
+        id: ing.id, vault_key: vaultKey,
+        name: ing.name, price: ing.price, qty: ing.qty,
+        unit: ing.unit, store: ing.store || null,
+        cost_per_unit: ing.costPerUnit
+      }));
+      const { error } = await sb.from('pantry_items').upsert(rows);
+      if (error) throw error;
+    }
+
+    // Upsert recipes + their ingredients
+    for (const recipe of state.recipes) {
+      const { error: re } = await sb.from('recipes').upsert({
+        id: recipe.id, vault_key: vaultKey,
+        name: recipe.name, servings: recipe.servings,
+        yield_desc: recipe.yieldDesc || null,
+        temp: recipe.temp || null,
+        cook_time: recipe.cookTime || null,
+        instructions: recipe.instructions || null,
+        scale: recipe.scale || 1,
+        bakers_pct: recipe.bakersPct || false,
+        bakers_base_idx: recipe.bakersBaseIdx ?? null
+      });
+      if (re) throw re;
+
+      // Delete + re-insert recipe_ingredients (simpler than diffing)
+      await sb.from('recipe_ingredients').delete().eq('recipe_id', recipe.id);
+      if (recipe.ingredients.length) {
+        const riRows = recipe.ingredients.map((ri, i) => ({
+          id: crypto.randomUUID(),
+          recipe_id: recipe.id, vault_key: vaultKey,
+          ing_id: ri.ingId || null,
+          amount: ri.amount, unit: ri.unit || null,
+          display_name: ri.displayName || null,
+          notes: ri.notes || null,
+          optional: ri.optional || false,
+          include_cost: ri.includeCost !== false,
+          ghost_name: ri.ghostName || null,
+          ghost_unit: ri.ghostUnit || null,
+          sort_order: i
+        }));
+        const { error: rie } = await sb.from('recipe_ingredients').insert(riRows);
+        if (rie) throw rie;
+      }
+    }
+  }
+
+  // Pull all data from Supabase and hydrate local state
+  async function pullFromSupabase(vaultKey) {
+    const sb = sbWithKey(vaultKey);
+
+    const [{ data: pantry, error: pe }, { data: recipes, error: re }, { data: ris, error: rie }] =
+      await Promise.all([
+        sb.from('pantry_items').select('*'),
+        sb.from('recipes').select('*'),
+        sb.from('recipe_ingredients').select('*').order('sort_order')
+      ]);
+
+    if (pe || re || rie) throw pe || re || rie;
+
+    state.ingredients = (pantry || []).map(r => ({
+      id: r.id, name: r.name, price: r.price,
+      qty: r.qty, unit: r.unit, store: r.store || '',
+      costPerUnit: r.cost_per_unit
+    }));
+
+    state.recipes = (recipes || []).map(r => {
+      const ingredients = (ris || [])
+        .filter(ri => ri.recipe_id === r.id)
+        .map(ri => ({
+          ingId: ri.ing_id || null,
+          amount: ri.amount, unit: ri.unit || undefined,
+          displayName: ri.display_name || undefined,
+          notes: ri.notes || undefined,
+          optional: ri.optional || false,
+          includeCost: ri.include_cost,
+          ghostName: ri.ghost_name || undefined,
+          ghostUnit: ri.ghost_unit || undefined
+        }));
+      return {
+        id: r.id, name: r.name, servings: r.servings,
+        yieldDesc: r.yield_desc || '', temp: r.temp || '',
+        cookTime: r.cook_time || '', instructions: r.instructions || '',
+        scale: r.scale || 1, bakersPct: r.bakers_pct || false,
+        bakersBaseIdx: r.bakers_base_idx ?? undefined,
+        ingredients
+      };
+    });
+
+    save(); // persist to localStorage too
+  }
+
+  // ── Vault UI helpers ───────────────────────────────────────────────────
+  function clearVaultError(id) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '';
+  }
+
+  function setVaultError(id, msg) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = msg;
+  }
+
+  function setVaultBtnLoading(btnId, loading) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Please wait…' : btn.dataset.label;
+  }
+
+  function refreshVaultKeySuggestion() {
+    document.getElementById('setup-vault-key').value = generateVaultKey();
+  }
+
+  // ── Vault setup (first visit) ──────────────────────────────────────────
+  async function submitVaultSetup() {
+    const key        = document.getElementById('setup-vault-key').value.trim().toLowerCase();
+    const pin        = document.getElementById('setup-pin').value;
+    const pinConfirm = document.getElementById('setup-pin-confirm').value;
+
+    const keyErr = validateVaultKey(key);
+    if (keyErr) { setVaultError('setup-key-error', keyErr); return; }
+    if (!/^\d{4,8}$/.test(pin)) { setVaultError('setup-pin-error', 'PIN must be 4–8 digits.'); return; }
+    if (pin !== pinConfirm) { setVaultError('setup-pin-error', "PINs don't match."); return; }
+
+    const btn = document.querySelector('#vault-setup-screen .btn-primary');
+    btn.disabled = true; btn.textContent = 'Setting up…';
+
+    try {
+      // Check key isn't already taken
+      const { data: existing } = await _sb.from('vault_keys').select('vault_key').eq('vault_key', key).maybeSingle();
+      if (existing) {
+        setVaultError('setup-key-error', 'This key is already taken — try a different one.');
+        btn.disabled = false; btn.textContent = 'Set up my vault →';
+        return;
+      }
+
+      const pinHash = await hashPin(pin);
+      const { error } = await _sb.from('vault_keys').insert({ vault_key: key, pin_hash: pinHash });
+      if (error) throw error;
+
+      setVaultMeta({ vaultKey: key, verified: true });
+      document.getElementById('vault-setup-screen').style.display = 'none';
+      updateVaultHeaderBtn();
+      showToast('Vault created! Your key: ' + key);
+    } catch (err) {
+      console.error(err);
+      setVaultError('setup-pin-error', 'Something went wrong — please try again.');
+      btn.disabled = false; btn.textContent = 'Set up my vault →';
+    }
+  }
+
+  function skipVaultSetup() {
+    setVaultMeta({ vaultKey: null, verified: false, skipped: true });
+    document.getElementById('vault-setup-screen').style.display = 'none';
+  }
+
+  // ── Vault verify (returning device) ───────────────────────────────────
+  async function submitVaultVerify() {
+    const key = document.getElementById('verify-vault-key').value.trim().toLowerCase();
+    const pin = document.getElementById('verify-pin').value;
+
+    const keyErr = validateVaultKey(key);
+    if (keyErr) { setVaultError('verify-error', keyErr); return; }
+    if (!/^\d{4,8}$/.test(pin)) { setVaultError('verify-error', 'PIN must be 4–8 digits.'); return; }
+
+    const btn = document.querySelector('#vault-verify-screen .btn-primary');
+    btn.disabled = true; btn.textContent = 'Verifying…';
+
+    try {
+      const { data, error } = await _sb.from('vault_keys').select('pin_hash').eq('vault_key', key).maybeSingle();
+      if (error) throw error;
+      if (!data) { setVaultError('verify-error', 'Vault key not found.'); btn.disabled = false; btn.textContent = 'Load my recipes →'; return; }
+
+      const match = await verifyPin(pin, data.pin_hash);
+      if (!match) { setVaultError('verify-error', 'Incorrect PIN.'); btn.disabled = false; btn.textContent = 'Load my recipes →'; return; }
+
+      btn.textContent = 'Loading recipes…';
+      await pullFromSupabase(key);
+
+      setVaultMeta({ vaultKey: key, verified: true });
+      document.getElementById('vault-verify-screen').style.display = 'none';
+      updateVaultHeaderBtn();
+      renderPantry();
+      renderRecipeList();
+      showToast('Vault loaded — welcome back!');
+    } catch (err) {
+      console.error(err);
+      setVaultError('verify-error', 'Something went wrong — please try again.');
+      btn.disabled = false; btn.textContent = 'Load my recipes →';
+    }
+  }
+
+  function skipVaultVerify() {
+    document.getElementById('vault-verify-screen').style.display = 'none';
+  }
+
+  // ── My vault modal ─────────────────────────────────────────────────────
+  function openVaultModal() {
+    const meta = getVaultMeta();
+    document.getElementById('vault-modal-key').textContent = meta?.vaultKey || '—';
+    openModal('vault-modal');
+  }
+
+  function copyVaultKey() {
+    const key = document.getElementById('vault-modal-key').textContent;
+    if (key && key !== '—') {
+      navigator.clipboard.writeText(key).then(() => showToast('Vault key copied!'));
+    }
+  }
+
+  function updateVaultHeaderBtn() {
+    const meta = getVaultMeta();
+    const btn = document.getElementById('vault-header-btn');
+    if (!btn) return;
+    if (meta?.vaultKey) {
+      btn.textContent = '🔑 ' + meta.vaultKey;
+      btn.style.color = 'var(--pink-dark)';
+    } else {
+      btn.textContent = '🔑 Set up vault';
+      btn.style.color = 'var(--muted)';
+    }
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────
+  (function initVault() {
+    const meta = getVaultMeta();
+    if (!meta || (!meta.vaultKey && !meta.skipped)) {
+      const suggested = generateVaultKey();
+      document.getElementById('setup-vault-key').value = suggested;
+      document.getElementById('vault-setup-screen').style.display = 'flex';
+    } else if (meta.vaultKey && !meta.verified) {
+      document.getElementById('verify-vault-key').value = meta.vaultKey;
+      document.getElementById('vault-verify-screen').style.display = 'flex';
+    }
+    updateVaultHeaderBtn();
+  })();
+</script>
+
+
+
+<script>
+  // ── Vault key helpers ──────────────────────────────────────────────────
+  const VAULT_LS_KEY = 'crumble_vault';
+  // { vaultKey, verified: bool }
+  function getVaultMeta() {
+    return JSON.parse(localStorage.getItem(VAULT_LS_KEY)||'null');
+  }
+  function setVaultMeta(meta) {
+    localStorage.setItem(VAULT_LS_KEY, JSON.stringify(meta));
+  }
+
+  // Baking-themed word lists for noun-verb-noun suggestion
+  const VAULT_NOUNS = ['butter','flour','sugar','cream','yeast','dough','crumb','glaze','crust','honey',
+    'cocoa','malt','oat','rye','bran','milk','egg','spelt','sesame','poppy',
+    'walnut','almond','pecan','ginger','vanilla','cinnamon','cardamom','saffron','anise','clove'];
+  const VAULT_VERBS = ['meets','loves','greets','hugs','feeds','finds','folds','lifts','rises','binds',
+    'melts','coats','fills','joins','blends','holds','seeks','bakes','cools','rests'];
+
+  function generateVaultKey() {
+    const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+    return `${pick(VAULT_NOUNS)}-${pick(VAULT_VERBS)}-${pick(VAULT_NOUNS)}`;
+  }
+
+  function validateVaultKey(key) {
+    if (!key) return 'Please enter a vault key.';
+    if (key.length < 6) return 'Key must be at least 6 characters.';
+    if (!/^[a-z0-9-]+$/.test(key)) return 'Only lowercase letters, numbers, and hyphens allowed.';
+    return null;
+  }
+
+  // ── State & persistence ────────────────────────────────────────────────
   let state = JSON.parse(localStorage.getItem('bakebudget_v1')||'null')||{ingredients:[],recipes:[],activeRecipeId:null};
-  function save(){localStorage.setItem('bakebudget_v1',JSON.stringify(state));}
+  // ── Persistence: localStorage + async Supabase dual-write ────────────
+  function save() {
+    localStorage.setItem('bakebudget_v1', JSON.stringify(state));
+    const meta = getVaultMeta();
+    if (meta?.vaultKey && meta?.verified) {
+      pushToSupabase(meta.vaultKey).catch(err => {
+        console.error('Supabase sync error:', err);
+        showToast('⚠️ Local save succeeded but cloud sync failed.', 5000);
+      });
+    }
+  }
 
   let _toastTimer=null;
   function showToast(msg, duration=4000){
@@ -568,7 +987,7 @@
     const unit  = ov ? ov.unit  : document.getElementById('ing-unit').value;
     const store = ov ? (ov.store||'') : toTitleCase(document.getElementById('ing-store').value.trim());
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in name, store price, and package amount.');return null;}
-    const ing={id:Date.now()+Math.random(),name,price,qty,unit,store,costPerUnit:price/qty};
+    const ing={id:crypto.randomUUID(),name,price,qty,unit,store,costPerUnit:price/qty};
     state.ingredients.push(ing); save();
     if(!ov){
       ['ing-name','ing-price','ing-qty','ing-store'].forEach(id=>document.getElementById(id).value='');
@@ -615,7 +1034,7 @@
   }
 
   function saveIngredientEdit(){
-    const id=parseFloat(document.getElementById('edit-ing-id').value);
+    const id=document.getElementById('edit-ing-id').value;
     const name=capitalizeName(document.getElementById('edit-ing-name').value.trim());
     const price=parseFloat(document.getElementById('edit-ing-price').value);
     const qty=parseFloat(document.getElementById('edit-ing-qty').value);
@@ -844,7 +1263,7 @@
     const temp=document.getElementById('new-recipe-temp').value.trim();
     const cookTime=document.getElementById('new-recipe-time').value.trim();
     if(!name||isNaN(servings)||servings<1){alert('Please enter a recipe name and number of servings.');return;}
-    const recipe={id:Date.now(),name,servings,yieldDesc,temp,cookTime,ingredients:[],instructions:''};
+    const recipe={id:crypto.randomUUID(),name,servings,yieldDesc,temp,cookTime,ingredients:[],instructions:''};
     state.recipes.push(recipe); save(); closeModal('recipe-modal'); renderRecipeList(); openRecipeDetail(recipe.id);
   }
 
@@ -1128,9 +1547,9 @@
   function addIngredientToRecipe(){
     const recipe=state.recipes.find(r=>r.id===state.activeRecipeId);
     if(!recipe) return;
-    const ingId=parseInt(document.getElementById('recipe-ing-select').value);
+    const ingId=document.getElementById('recipe-ing-select').value;
     const amount=parseFloat(document.getElementById('recipe-ing-amount').value);
-    if(isNaN(ingId)||isNaN(amount)||amount<=0){alert('Select an ingredient and enter a valid amount.');return;}
+    if(!ingId||isNaN(amount)||amount<=0){alert('Select an ingredient and enter a valid amount.');return;}
     recipe.ingredients.push({ingId,amount});
     document.getElementById('recipe-ing-amount').value='';
     save(); renderRecipeDetail();
@@ -1196,7 +1615,7 @@
   }
 
   function saveRecipeEdit(){
-    const id=parseFloat(document.getElementById('edit-recipe-id').value);
+    const id=document.getElementById('edit-recipe-id').value;
     const name=document.getElementById('edit-recipe-name').value.trim();
     const servings=parseInt(document.getElementById('edit-recipe-servings').value);
     const yieldDesc=document.getElementById('edit-recipe-yield').value.trim();
@@ -1319,14 +1738,14 @@
     const newStore=toTitleCase(document.getElementById('ri-new-store').value.trim());
     const hasNew=!isNaN(newPrice)&&!isNaN(newQty)&&newQty>0;
     if(hasNew){
-      const ingName=ri.ghostName||(picked?state.ingredients.find(x=>x.id===parseFloat(picked.value))?.name:'New ingredient');
+      const ingName=ri.ghostName||(picked?state.ingredients.find(x=>x.id===picked.value)?.name:'New ingredient');
       const newIng=addIngredient({name:ingName,price:newPrice,qty:newQty,unit:newUnit,store:newStore});
       if(!newIng) return;
       ri.ingId=newIng.id;
       ri.ghostName=undefined; ri.ghostUnit=undefined;
       renderPantry();
     } else if(picked){
-      ri.ingId=parseFloat(picked.value);
+      ri.ingId=picked.value;
       ri.ghostName=undefined; ri.ghostUnit=undefined;
     } else {
       alert('Select a pantry entry to link, or fill in the new pantry fields.'); return;

@@ -1579,7 +1579,7 @@
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
           const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
           return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}">
-            <span>${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount}${displayUnit}</span></span>
+            <span>${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:8px">
               ${ri.includeCost!==false?`<span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
@@ -1595,7 +1595,7 @@
               ${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span>
             </span>
             <span style="display:flex;align-items:center;gap:8px">
-              <span class="tag tag-pink" style="font-size:10px">no price</span>
+              <span class="tag" style="font-size:10px;background:#f0f0ee;color:var(--muted)">no price</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
               <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
             </span>

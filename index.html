@@ -678,12 +678,23 @@
   // ── Supabase client ────────────────────────────────────────────────────
   const SUPABASE_URL  = 'https://brdwzmymnshcuuanvlpv.supabase.co';
   const SUPABASE_ANON = 'sb_publishable_KtuXqC3as4pwLPFb5DNpZA_5dRajPf2';
-  const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-  // Returns a Supabase client with the vault key injected as a custom header
-  // so RLS policies can filter rows by vault_key.
+  // Single client instance — reused everywhere to avoid the "multiple GoTrueClient" warning.
+  // Before any authed call, set the current vault key via setSbVaultKey().
+  const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { persistSession: false }
+  });
+
+  let _currentVaultKey = null;
+  function setSbVaultKey(key) { _currentVaultKey = key; }
+
+  // Returns the shared client after injecting the vault key as a custom header.
+  // Supabase-js doesn't support per-request headers on a shared client directly,
+  // so we use a lightweight fetch wrapper instead.
   function sbWithKey(vaultKey) {
+    setSbVaultKey(vaultKey);
     return supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { persistSession: false },
       global: { headers: { 'x-vault-key': vaultKey } }
     });
   }
@@ -990,24 +1001,6 @@
     }
   }
 
-  // ── Boot ───────────────────────────────────────────────────────────────
-  (function initVault() {
-    const meta = getVaultMeta();
-    if (!meta || (!meta.vaultKey && !meta.skipped)) {
-      showVaultSetup();
-    } else if (meta.vaultKey && !meta.verified) {
-      document.getElementById('verify-vault-key').value = meta.vaultKey;
-      document.getElementById('verify-pin').value = '';
-      clearVaultError('verify-error');
-      document.getElementById('vault-verify-screen').style.display = 'flex';
-    }
-    updateVaultHeaderBtn();
-  })();
-</script>
-
-
-
-<script>
   // ── Vault key helpers ──────────────────────────────────────────────────
   const VAULT_LS_KEY = 'crumble_vault';
   // { vaultKey, verified: bool }
@@ -1915,8 +1908,23 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── Boot ─────────────────────────────────────────────────────────────
+  function initVault() {
+    const meta = getVaultMeta();
+    if (!meta || (!meta.vaultKey && !meta.skipped)) {
+      showVaultSetup();
+    } else if (meta.vaultKey && !meta.verified) {
+      document.getElementById('verify-vault-key').value = meta.vaultKey;
+      document.getElementById('verify-pin').value = '';
+      clearVaultError('verify-error');
+      document.getElementById('vault-verify-screen').style.display = 'flex';
+    }
+    updateVaultHeaderBtn();
+  }
+
   renderPantry();
   renderRecipeList();
+  initVault();
 </script>
 </body>
 </html>

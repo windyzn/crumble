@@ -850,7 +850,16 @@
       const { error } = await _sb.from('vault_keys').insert({ vault_key: key, pin_hash: pinHash });
       if (error) throw error;
 
+      // Must set meta before pushToSupabase so save() dual-write works going forward
       setVaultMeta({ vaultKey: key, verified: true });
+
+      // Push any pre-existing local data up to Supabase now
+      const hasLocalData = state.ingredients.length > 0 || state.recipes.length > 0;
+      if (hasLocalData) {
+        btn.textContent = 'Syncing your data…';
+        await pushToSupabase(key);
+      }
+
       document.getElementById('vault-setup-screen').style.display = 'none';
       updateVaultHeaderBtn();
       openVaultModal(); // show the key immediately so user can note it down

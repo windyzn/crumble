@@ -703,6 +703,15 @@
     return await hashPin(pin) === storedHash;
   }
 
+  // Explicitly delete rows from Supabase — upsert won't remove deleted items
+  async function deleteFromSupabase(table, id) {
+    const meta = getVaultMeta();
+    if (!meta?.vaultKey || !meta?.verified) return;
+    const sb = sbWithKey(meta.vaultKey);
+    const { error } = await sb.from(table).delete().eq('id', String(id));
+    if (error) console.error(`Supabase delete from ${table} failed:`, error);
+  }
+
   // ── Supabase data helpers ──────────────────────────────────────────────
 
   // Push entire local state up to Supabase (upsert strategy)
@@ -1123,12 +1132,12 @@
   function removeIngredientById(id){
     const ing=state.ingredients.find(x=>String(x.id)===String(id));
     if(!ing) return;
-    // stash for potential undo
     const removedIng=ing;
-    const removedFromRecipes=state.recipes.map(r=>({id:r.id,ings:r.ingredients.filter(x=>String(x.ingId)===String(id))})).filter(r=>r.ings.length);
     state.ingredients=state.ingredients.filter(x=>String(x.id)!==String(id));
     state.recipes.forEach(r=>{r.ingredients=r.ingredients.filter(x=>String(x.ingId)!==String(id));});
-    save(); renderPantry();
+    save();
+    deleteFromSupabase('pantry_items', id); // explicit delete — upsert won't remove it
+    renderPantry();
     if(state.activeRecipeId) renderRecipeDetail();
     showToast(`Removed "${removedIng.name}"`, 4000);
   }
@@ -1531,7 +1540,9 @@
   function deleteRecipe(id){
     if(!confirm('Delete this recipe? This cannot be undone.')) return;
     state.recipes=state.recipes.filter(r=>String(r.id)!==String(id));
-    save(); closeRecipeDetail();
+    save();
+    deleteFromSupabase('recipes', id); // recipe_ingredients cascade-delete via FK
+    closeRecipeDetail();
   }
 
   const UNIT_FAMILY={

@@ -117,7 +117,17 @@
     .link-option-name { font-size:13px; font-weight:500; }
     .link-option-detail { font-size:11px; color:var(--muted); }
     /* Vault screens */
-    .vault-screen { position:fixed; inset:0; background:var(--cream); z-index:300; display:flex; align-items:center; justify-content:center; padding:1rem; }
+    .tag-filter-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+    .tag-filter-btn { padding:4px 12px; border-radius:7px; font-size:12px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; border:0.5px solid var(--border-strong); background:none; color:var(--muted); transition:all 0.15s; }
+    .tag-filter-btn:hover { border-color:var(--pink-mid); color:var(--pink-dark); }
+    .tag-filter-btn.active { background:var(--pink-light); border-color:var(--pink-mid); color:var(--pink-dark); }
+    .recipe-tag { display:inline-block; padding:2px 8px; border-radius:5px; font-size:10px; font-weight:500; background:var(--pink-light); color:var(--pink-dark); margin-right:4px; }
+    .recipe-group-label { font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; padding:8px 0 4px; margin-top:4px; border-top:0.5px solid var(--border); }
+    .recipe-group-label:first-child { border-top:none; margin-top:0; }
+    .tag-input-wrap { position:relative; }
+    .tag-suggestions { position:absolute; top:100%; left:0; right:0; background:var(--white); border:0.5px solid var(--border-strong); border-radius:9px; box-shadow:var(--shadow); z-index:50; margin-top:3px; overflow:hidden; }
+    .tag-suggestion-item { padding:8px 12px; font-size:13px; cursor:pointer; transition:background 0.1s; }
+    .tag-suggestion-item:hover { background:var(--pink-light); color:var(--pink-dark); }
     .vault-card { background:var(--white); border:0.5px solid var(--border-strong); border-radius:20px; padding:2rem; width:min(480px,92vw); box-shadow:0 8px 40px rgba(0,0,0,0.1); }
     .vault-card h2 { font-family:'Poppins',sans-serif; font-size:1.3rem; font-weight:700; margin-bottom:0.35rem; }
     .vault-card p { font-size:13px; color:var(--muted); margin-bottom:1.4rem; line-height:1.6; }
@@ -196,6 +206,7 @@
           <span class="card-title">My recipes</span>
           <button class="btn btn-primary" onclick="openNewRecipeModal()">New recipe</button>
         </div>
+        <div id="recipe-tag-filter" class="tag-filter-bar" style="display:none"></div>
         <div id="recipe-list"><div class="empty">No recipes yet — create your first!</div></div>
       </div>
     </div>
@@ -297,6 +308,13 @@
         <input type="text" id="edit-recipe-time" placeholder="e.g. 25–30 min" style="width:100%">
       </div>
     </div>
+    <div class="form-group" style="margin-bottom:4px">
+      <label>Categories <em>(optional — comma separated)</em></label>
+      <div class="tag-input-wrap">
+        <input type="text" id="edit-recipe-tags" placeholder="e.g. cookies, chocolate, gifting" style="width:100%" autocomplete="off" oninput="showTagSuggestions('edit-recipe-tags','edit-tags-suggestions')" onblur="hideTagSuggestions('edit-tags-suggestions')">
+        <div class="tag-suggestions" id="edit-tags-suggestions" style="display:none"></div>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('edit-recipe-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveRecipeEdit()">Save changes</button>
@@ -330,6 +348,13 @@
       <div class="form-group" style="flex:1;min-width:120px">
         <label>Cook time <em>(optional)</em></label>
         <input type="text" id="new-recipe-time" placeholder="e.g. 25–30 min" style="width:100%">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:4px">
+      <label>Categories <em>(optional — comma separated)</em></label>
+      <div class="tag-input-wrap">
+        <input type="text" id="new-recipe-tags" placeholder="e.g. cookies, chocolate, gifting" style="width:100%" autocomplete="off" oninput="showTagSuggestions('new-recipe-tags','new-tags-suggestions')" onblur="hideTagSuggestions('new-tags-suggestions')">
+        <div class="tag-suggestions" id="new-tags-suggestions" style="display:none"></div>
       </div>
     </div>
     <div class="modal-actions">
@@ -700,7 +725,8 @@
         instructions: recipe.instructions || null,
         scale: recipe.scale || 1,
         bakers_pct: recipe.bakersPct || false,
-        bakers_base_idx: recipe.bakersBaseIdx ?? null
+        bakers_base_idx: recipe.bakersBaseIdx ?? null,
+        tags: (recipe.tags||[]).join(',') || null
       });
       if (re) throw re;
 
@@ -764,6 +790,7 @@
         cookTime: r.cook_time || '', instructions: r.instructions || '',
         scale: r.scale || 1, bakersPct: r.bakers_pct || false,
         bakersBaseIdx: r.bakers_base_idx ?? undefined,
+        tags: r.tags ? r.tags.split(',').filter(Boolean) : [],
         ingredients
       };
     });
@@ -1351,6 +1378,7 @@
   function openNewRecipeModal(){
     document.getElementById('new-recipe-name').value='';
     document.getElementById('new-recipe-servings').value='';
+    document.getElementById('new-recipe-tags').value='';
     openModal('recipe-modal');
   }
 
@@ -1360,27 +1388,137 @@
     const yieldDesc=document.getElementById('new-recipe-yield').value.trim();
     const temp=document.getElementById('new-recipe-temp').value.trim();
     const cookTime=document.getElementById('new-recipe-time').value.trim();
+    const tags=parseTags(document.getElementById('new-recipe-tags').value);
     if(!name||isNaN(servings)||servings<1){alert('Please enter a recipe name and number of servings.');return;}
-    const recipe={id:crypto.randomUUID(),name,servings,yieldDesc,temp,cookTime,ingredients:[],instructions:''};
+    const recipe={id:crypto.randomUUID(),name,servings,yieldDesc,temp,cookTime,tags,ingredients:[],instructions:''};
     state.recipes.push(recipe); save(); closeModal('recipe-modal'); renderRecipeList(); openRecipeDetail(recipe.id);
+  }
+
+  function parseTags(str){
+    return str.split(',').map(t=>t.trim().toLowerCase()).filter(Boolean);
+  }
+
+  // ── Tag autocomplete ───────────────────────────────────────────────────
+  function allExistingTags(){
+    return [...new Set(state.recipes.flatMap(r=>r.tags||[]))].sort();
+  }
+
+  function showTagSuggestions(inputId, suggestionsId){
+    const input = document.getElementById(inputId);
+    const box   = document.getElementById(suggestionsId);
+    const val   = input.value;
+    const lastSegment = val.split(',').pop().trim().toLowerCase();
+    if(!lastSegment){ box.style.display='none'; return; }
+    const entered = parseTags(val.split(',').slice(0,-1).join(','));
+    const matches = allExistingTags().filter(t =>
+      t.startsWith(lastSegment) && !entered.includes(t) && t !== lastSegment
+    );
+    if(!matches.length){ box.style.display='none'; return; }
+    box.innerHTML = matches.map(t =>
+      `<div class="tag-suggestion-item" onmousedown="selectTagSuggestion('${inputId}','${suggestionsId}','${escHtml(t)}')">${escHtml(t)}</div>`
+    ).join('');
+    box.style.display='block';
+  }
+
+  function hideTagSuggestions(suggestionsId){
+    setTimeout(()=>{ const b=document.getElementById(suggestionsId); if(b) b.style.display='none'; }, 150);
+  }
+
+  function selectTagSuggestion(inputId, suggestionsId, tag){
+    const input = document.getElementById(inputId);
+    const parts = input.value.split(',');
+    parts[parts.length-1] = ' ' + tag;
+    input.value = parts.join(',').replace(/^,\s*/,'') + ', ';
+    document.getElementById(suggestionsId).style.display='none';
+    input.focus();
+  }
+
+  // ── Multi-select tag filter ────────────────────────────────────────────
+  let _activeTagFilters = new Set();
+
+  function toggleTagFilter(tag){
+    if(tag === null){
+      _activeTagFilters.clear();
+    } else {
+      if(_activeTagFilters.has(tag)) _activeTagFilters.delete(tag);
+      else _activeTagFilters.add(tag);
+    }
+    renderRecipeList();
   }
 
   function renderRecipeList(){
     const el=document.getElementById('recipe-list');
-    if(!state.recipes.length){el.innerHTML='<div class="empty">No recipes yet — create your first!</div>';return;}
-    el.innerHTML=state.recipes.map(r=>{
+    const filterBar=document.getElementById('recipe-tag-filter');
+
+    if(!state.recipes.length){
+      el.innerHTML='<div class="empty">No recipes yet — create your first!</div>';
+      filterBar.style.display='none';
+      return;
+    }
+
+    const allTags=[...new Set(state.recipes.flatMap(r=>r.tags||[]))].sort();
+
+    if(allTags.length){
+      filterBar.style.display='flex';
+      const noneActive=_activeTagFilters.size===0;
+      filterBar.innerHTML=[
+        `<button class="tag-filter-btn${noneActive?' active':''}" onclick="toggleTagFilter(null)">All</button>`,
+        ...allTags.map(t=>`<button class="tag-filter-btn${_activeTagFilters.has(t)?' active':''}" onclick="toggleTagFilter('${escHtml(t)}')">${escHtml(t)}</button>`)
+      ].join('');
+    } else {
+      filterBar.style.display='none';
+    }
+
+    const filtered=_activeTagFilters.size
+      ? state.recipes.filter(r=>(r.tags||[]).some(t=>_activeTagFilters.has(t)))
+      : state.recipes;
+
+    if(!filtered.length){
+      el.innerHTML='<div class="empty">No recipes in this category.</div>';
+      return;
+    }
+
+    function recipePillHtml(r){
       const cost=calcRecipeCost(r);
       return `<div class="recipe-pill" onclick="openRecipeDetail('${r.id}')">
         <div>
           <div class="recipe-pill-name">${escHtml(r.name)}</div>
-          <div class="recipe-pill-meta">${r.servings} serving${r.servings!==1?'s':''} &middot; ${r.ingredients.length} ingredient${r.ingredients.length!==1?'s':''}</div>
+          <div class="recipe-pill-meta" style="margin-top:3px">
+            ${r.servings} serving${r.servings!==1?'s':''} &middot; ${r.ingredients.length} ingredient${r.ingredients.length!==1?'s':''}
+          </div>
         </div>
-        <div style="text-align:right">
+        <div style="text-align:right;flex-shrink:0">
           <div style="font-weight:500;color:var(--green-dark)">$${cost.toFixed(2)}</div>
           <div style="font-size:11px;color:var(--muted)">total cost</div>
         </div>
       </div>`;
-    }).join('');
+    }
+
+    if(_activeTagFilters.size || !allTags.length){
+      el.innerHTML=filtered.map(recipePillHtml).join('');
+    } else {
+      const grouped={};
+      const untagged=[];
+      filtered.forEach(r=>{
+        if(r.tags&&r.tags.length){
+          const g=r.tags[0];
+          if(!grouped[g]) grouped[g]=[];
+          grouped[g].push(r);
+        } else {
+          untagged.push(r);
+        }
+      });
+      let html='';
+      Object.keys(grouped).sort().forEach(g=>{
+        html+=`<div class="recipe-group-label">${escHtml(g)}</div>`;
+        html+=grouped[g].map(recipePillHtml).join('');
+      });
+      if(untagged.length){
+        if(html) html+=`<div class="recipe-group-label">Other</div>`;
+        html+=untagged.map(recipePillHtml).join('');
+      }
+      el.innerHTML=html;
+    }
   }
 
   function deleteRecipe(id){
@@ -1521,10 +1659,13 @@
     if(recipe.temp) metaParts.push(escHtml(recipe.temp));
     if(recipe.cookTime) metaParts.push(escHtml(recipe.cookTime));
 
+    const tagHtml=(recipe.tags||[]).map(t=>`<span class="recipe-tag">${escHtml(t)}</span>`).join('');
+
     document.getElementById('recipe-detail-header').innerHTML=`
       <div>
         <div style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:700">${escHtml(recipe.name)}</div>
         <div style="font-size:13px;color:var(--muted);margin-top:3px">${metaParts.join(' &middot; ')}</div>
+        ${tagHtml?`<div style="margin-top:6px">${tagHtml}</div>`:''}
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-edit" onclick="openEditRecipeModal('${recipe.id}')">Edit</button>
@@ -1663,6 +1804,7 @@
     document.getElementById('edit-recipe-yield').value=recipe.yieldDesc||'';
     document.getElementById('edit-recipe-temp').value=recipe.temp||'';
     document.getElementById('edit-recipe-time').value=recipe.cookTime||'';
+    document.getElementById('edit-recipe-tags').value=(recipe.tags||[]).join(', ');
     openModal('edit-recipe-modal');
   }
 
@@ -1673,10 +1815,11 @@
     const yieldDesc=document.getElementById('edit-recipe-yield').value.trim();
     const temp=document.getElementById('edit-recipe-temp').value.trim();
     const cookTime=document.getElementById('edit-recipe-time').value.trim();
+    const tags=parseTags(document.getElementById('edit-recipe-tags').value);
     if(!name||isNaN(servings)||servings<1){alert('Please enter a name and number of servings.');return;}
     const recipe=state.recipes.find(r=>String(r.id)===String(id));
     if(!recipe) return;
-    Object.assign(recipe,{name,servings,yieldDesc,temp,cookTime});
+    Object.assign(recipe,{name,servings,yieldDesc,temp,cookTime,tags});
     save(); closeModal('edit-recipe-modal'); renderRecipeDetail(); renderRecipeList();
   }
 

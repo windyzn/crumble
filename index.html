@@ -216,12 +216,19 @@
         <div id="recipe-detail-header" class="card-header"></div>
         <div class="section-title">Cost summary</div>
         <div class="cost-cards" id="cost-summary"></div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:8px 12px;background:var(--green-light);border-radius:10px">
-          <span style="font-size:12px;color:var(--green-dark);font-weight:500">Scale recipe</span>
-          <button onclick="changeScale(-0.5)" class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:14px;border-color:var(--green)">&#8722;</button>
-          <span id="scale-display" style="font-size:13px;font-weight:500;color:var(--green-dark);min-width:32px;text-align:center">1×</span>
-          <button onclick="changeScale(0.5)" class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:14px;border-color:var(--green)">&#43;</button>
-          <button onclick="resetScale()" class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--muted)">Reset</button>
+        <div style="margin-top:10px">
+          <button onclick="toggleScalePanel()" id="scale-toggle-btn" class="btn btn-ghost btn-sm" style="font-size:12px;color:var(--green-dark);border-color:var(--green-mid)">⇄ Scale recipe</button>
+          <div id="scale-panel" style="display:none;margin-top:8px;padding:10px 12px;background:var(--green-light);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <select id="scale-op" style="font-size:13px;padding:5px 8px;border-color:var(--green-mid);color:var(--green-dark);background:var(--white)" onchange="applyScale()">
+                <option value="multiply">Multiply by</option>
+                <option value="divide">Divide by</option>
+              </select>
+              <input type="number" id="scale-factor" min="0.01" step="any" placeholder="2" style="width:80px;font-size:13px;border-color:var(--green-mid)" oninput="applyScale()">
+              <span id="scale-display" style="font-size:12px;font-weight:500;color:var(--green-dark);min-width:40px"></span>
+              <button onclick="resetScale()" class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--muted);margin-left:4px">Reset</button>
+            </div>
+          </div>
         </div>
         <div class="divider"></div>
         <div class="section-row">
@@ -1580,12 +1587,22 @@
     return amount*(factors[unit]||1);
   }
 
-  function changeScale(delta){
+  function toggleScalePanel(){
+    const panel=document.getElementById('scale-panel');
+    const btn=document.getElementById('scale-toggle-btn');
+    const open=panel.style.display==='none';
+    panel.style.display=open?'block':'none';
+    btn.style.background=open?'var(--green-light)':'';
+    if(open) document.getElementById('scale-factor').focus();
+  }
+
+  function applyScale(){
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
-    const current=recipe.scale||1;
-    const next=Math.max(0.5,Math.round((current+delta)*4)/4);
-    recipe.scale=next;
+    const op=document.getElementById('scale-op').value;
+    const factor=parseFloat(document.getElementById('scale-factor').value);
+    if(!factor||factor<=0) return;
+    recipe.scale = op==='divide' ? 1/factor : factor;
     save(); renderRecipeDetail();
   }
 
@@ -1593,6 +1610,7 @@
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     recipe.scale=1;
+    document.getElementById('scale-factor').value='';
     save(); renderRecipeDetail();
   }
 
@@ -1672,7 +1690,9 @@
         <button class="btn btn-danger" onclick="deleteRecipe('${recipe.id}')">Delete</button>
       </div>`;
 
-    document.getElementById('scale-display').textContent=scale===1?'1×':(scale%1===0?scale+'×':scale.toFixed(2)+'×');
+    // Update scale display — show current scale factor if not 1
+    const scaleDisplay = document.getElementById('scale-display');
+    if(scaleDisplay) scaleDisplay.textContent = scale===1 ? '' : `= ${scale%1===0?scale:scale.toFixed(3).replace(/\.?0+$/,'')}×`;
 
     document.getElementById('cost-summary').innerHTML=`
       <div class="cost-card"><div class="label">Total cost${scale!==1?' (scaled)':''}</div><div class="value">$${totalCost.toFixed(2)}</div></div>

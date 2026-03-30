@@ -1081,17 +1081,22 @@
         </div>
         <div class="ing-cost">$${ing.costPerUnit.toFixed(2)} / ${ing.unit}</div>
         <button class="btn btn-edit" onclick="openEditIngModalById('${ing.id}')">Edit</button>
-        <button class="btn btn-danger" onclick="removeIngredientById('${ing.id}')">Remove</button>
-        <button class="btn btn-edit" onclick="duplicateIngredient('${ing.id}')" title="Duplicate">⧉ Copy</button>
+        <button class="btn btn-danger" onclick="removeIngredientById('${ing.id}')">✕</button>
+        <button class="btn btn-edit" onclick="duplicateIngredient('${ing.id}')" title="Duplicate">⧉</button>
       </div>`).join('');
   }
 
   function removeIngredientById(id){
-    if(!confirm('Remove this ingredient from your pantry?')) return;
+    const ing=state.ingredients.find(x=>String(x.id)===String(id));
+    if(!ing) return;
+    // stash for potential undo
+    const removedIng=ing;
+    const removedFromRecipes=state.recipes.map(r=>({id:r.id,ings:r.ingredients.filter(x=>String(x.ingId)===String(id))})).filter(r=>r.ings.length);
     state.ingredients=state.ingredients.filter(x=>String(x.id)!==String(id));
     state.recipes.forEach(r=>{r.ingredients=r.ingredients.filter(x=>String(x.ingId)!==String(id));});
     save(); renderPantry();
     if(state.activeRecipeId) renderRecipeDetail();
+    showToast(`Removed "${removedIng.name}"`, 4000);
   }
 
   // Keep old index-based version for any legacy callers, delegate to ID version
@@ -1588,9 +1593,9 @@
           return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}">
             <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               ${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span>
-              <span class="tag tag-pink" style="font-size:10px">no price</span>
             </span>
             <span style="display:flex;align-items:center;gap:8px">
+              <span class="tag tag-pink" style="font-size:10px">no price</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
               <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
             </span>

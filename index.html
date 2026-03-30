@@ -1944,6 +1944,19 @@
   renderPantry();
   renderRecipeList();
   initVault();
+
+  // Auto-sync from Supabase on page load if vault is already set up
+  (async function autoSync() {
+    const meta = getVaultMeta();
+    if (!meta?.vaultKey || !meta?.verified) return;
+    try {
+      await pullFromSupabase(meta.vaultKey);
+      renderPantry();
+      renderRecipeList();
+    } catch (err) {
+      console.error('Auto-sync failed:', err);
+    }
+  })();
 </script>
 </body>
 </html>

@@ -213,6 +213,9 @@
           <span class="card-title">My recipes</span>
           <button class="btn btn-primary" onclick="openNewRecipeModal()">New recipe</button>
         </div>
+        <div style="margin-bottom:12px">
+          <input type="text" id="recipe-search" placeholder="Search recipes…" style="width:100%" oninput="renderRecipeList()">
+        </div>
         <div id="recipe-tag-filter" class="tag-filter-bar" style="display:none"></div>
         <div id="recipe-list"><div class="empty">No recipes yet — create your first!</div></div>
       </div>
@@ -1562,12 +1565,24 @@
       filterBar.style.display='none';
     }
 
-    const filtered=_activeTagFilters.size
+    const query=(document.getElementById('recipe-search')?.value||'').trim().toLowerCase();
+
+    const filtered=(_activeTagFilters.size
       ? state.recipes.filter(r=>(r.tags||[]).some(t=>_activeTagFilters.has(t)))
-      : state.recipes;
+      : state.recipes
+    ).filter(r=>{
+      if(!query) return true;
+      if(r.name.toLowerCase().includes(query)) return true;
+      if((r.tags||[]).some(t=>t.includes(query))) return true;
+      // search ingredient names
+      return r.ingredients.some(ri=>{
+        const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
+        return ing?.name.toLowerCase().includes(query) || ri.ghostName?.toLowerCase().includes(query);
+      });
+    });
 
     if(!filtered.length){
-      el.innerHTML='<div class="empty">No recipes in this category.</div>';
+      el.innerHTML=`<div class="empty">${query?'No recipes match your search.':'No recipes in this category.'}</div>`;
       return;
     }
 

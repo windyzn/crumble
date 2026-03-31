@@ -422,20 +422,17 @@
         </div>
         <div class="form-group">
           <label>Unit</label>
-          <select id="edit-ri-unit">
+          <select id="edit-ri-unit" onchange="document.getElementById('edit-ri-amount-row').style.display=this.value==='as needed'?'none':''">
             <option value="g">g</option><option value="kg">kg</option>
             <option value="oz">oz</option><option value="lb">lb</option>
             <option value="ml">ml</option><option value="L">L</option>
             <option value="tsp">tsp</option><option value="tbsp">tbsp</option>
             <option value="cup">cup</option><option value="count">count</option>
+            <option value="as needed">as needed</option>
           </select>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--cream);border-radius:9px">
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
-          <input type="checkbox" id="edit-ri-no-amount" style="accent-color:var(--pink-dark);width:15px;height:15px" onchange="toggleRiAmountRow()">
-          <span>No fixed amount <em style="font-weight:400">(e.g. to taste, as needed)</em></span>
-        </label>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
           <input type="checkbox" id="edit-ri-optional" style="accent-color:var(--pink-dark);width:15px;height:15px">
           <span>Mark as <strong>optional</strong> ingredient</span>
@@ -1314,12 +1311,22 @@
     cup:'cup',cups:'cup',
     pinch:'count',dash:'count',count:'count'
   };
+  const AS_NEEDED_PHRASES=['as needed','to taste','to season','as required','q.s.','qs'];
   const SKIP_WORDS=['large','small','medium','fresh','frozen','dried','packed','heaping','level','good','quality','freshly','whole','browned','chopped','shredded','squeezed','unsalted','salted','pure','light','dark'];
 
   function parseLine(line){
     line=line.trim();
     if(!line||line.startsWith('#')) return null;
     line=line.replace(/^[-*•]\s*/,'').replace(/\([^)]*\)/g,'').trim();
+    // Check for "as needed"-style lines before numeric parsing
+    const lower=line.toLowerCase();
+    for(const phrase of AS_NEEDED_PHRASES){
+      if(lower.includes(phrase)){
+        // name is everything that isn't the phrase
+        const name=cleanName(line.replace(new RegExp(phrase,'i'),'').replace(/^[,\s]+|[,\s]+$/g,''));
+        return {qty:0,unit:'as needed',name:name||cleanName(line),raw:line};
+      }
+    }
     const m=line.match(/^([\d¼½¾⅓⅔⅛⅜⅝⅞]+(?:[.,\/][\d]+)?)\s*([a-zA-Z]+)?\s+(.+)$/);
     if(!m) return {qty:1,unit:'count',name:cleanName(line),raw:line};
     let qty=parseFraction(m[1]);
@@ -1371,7 +1378,7 @@
     const total=parsed.length;
     document.getElementById('review-subtitle').textContent=
       `${total} ingredient${total!==1?'s':''} parsed. Edit any fields, uncheck any to skip.`;
-    const unitOpts=['g','kg','oz','lb','ml','L','tsp','tbsp','cup','count'].map(u=>`<option value="${u}">${u}</option>`).join('');
+    const unitOpts=['g','kg','oz','lb','ml','L','tsp','tbsp','cup','count','as needed'].map(u=>`<option value="${u}">${u}</option>`).join('');
     document.getElementById('review-list').innerHTML=parsed.map((p,i)=>{
       const match=findPantryMatch(p.name);
       const tag=match
@@ -1488,13 +1495,15 @@
     ensureIngLocalIds(recipe);
     const newLocalIds=[];
     (list||_pendingMatched).forEach(({parsed,ing})=>{
-      const ri={ingId:ing.id,amount:parsed.qty,unit:parsed.unit,notes:parsed.notes||undefined};
+      const ri={ingId:ing.id,amount:parsed.qty,unit:parsed.unit,notes:parsed.notes||undefined,
+        ...(parsed.unit==='as needed'?{noAmount:true,includeCost:false,unit:undefined}:{})};
       recipe.ingredients.push(ri);
       ensureIngLocalIds(recipe);
       newLocalIds.push(riLocalId(ri));
     });
     (ghosts||[]).forEach(p=>{
-      const ri={ingId:null,ghostName:capitalizeName(p.name),ghostUnit:p.unit,amount:p.qty,notes:p.notes||undefined};
+      const ri={ingId:null,ghostName:capitalizeName(p.name),ghostUnit:p.unit,amount:p.qty,notes:p.notes||undefined,
+        ...(p.unit==='as needed'?{noAmount:true,includeCost:false,ghostUnit:undefined}:{})};
       recipe.ingredients.push(ri);
       ensureIngLocalIds(recipe);
       newLocalIds.push(riLocalId(ri));
@@ -2151,9 +2160,10 @@
       // Build a helper that renders a single ingredient row
       function riRow(ri, idx, sectionId){
         const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
-        const displayUnit=ri.noAmount?'':( ri.unit||(ing?ing.unit:ri.ghostUnit||''));
-        const scaledAmount=ri.noAmount?0:ri.amount*scale;
-        const displayAmount=ri.noAmount?(ri.notes||'to taste'):(scaledAmount%1===0?scaledAmount.toFixed(0):(Math.round(scaledAmount*100)/100).toString());
+        const isAsNeeded = ri.noAmount || ri.unit==='as needed';
+        const displayUnit=isAsNeeded?'':( ri.unit||(ing?ing.unit:ri.ghostUnit||''));
+        const scaledAmount=isAsNeeded?0:ri.amount*scale;
+        const displayAmount=isAsNeeded?'as needed':(scaledAmount%1===0?scaledAmount.toFixed(0):(Math.round(scaledAmount*100)/100).toString());
         const lid = riLocalId(ri);
         let pctBadge='';
         if(scaledBase && idx!==recipe.bakersBaseIdx && WEIGHT_UNITS.has(displayUnit)){
@@ -2168,11 +2178,10 @@
           const lineCost=ri.includeCost===false?0:ing.costPerUnit*converted;
           const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
-          const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
           return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}cursor:grab" draggable="true"
             ondragstart="onIngDragStart(event,'${lid}','${sectionId||''}')"
             ondragover="onIngDragOver(event,'${lid}')" ondragleave="onIngDragLeave(event)" ondrop="onIngDrop(event,'${lid}','${sectionId||''}')">
-            <span style="display:flex;align-items:center;gap:4px">${drag}${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
+            <span style="display:flex;align-items:center;gap:4px">${drag}${escHtml(label)}${pctBadge}${optTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:6px">
               ${ri.includeCost!==false?`<span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
@@ -2182,11 +2191,10 @@
         } else {
           const label=(ri.displayName||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
-          const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
           return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}cursor:grab" draggable="true"
             ondragstart="onIngDragStart(event,'${lid}','${sectionId||''}')"
             ondragover="onIngDragOver(event,'${lid}')" ondragleave="onIngDragLeave(event)" ondrop="onIngDrop(event,'${lid}','${sectionId||''}')">
-            <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${drag}${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
+            <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${drag}${escHtml(label)}${pctBadge}${optTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:6px">
               <span class="tag" style="font-size:10px;background:#f0f0ee;color:var(--muted)">no price</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
@@ -2381,9 +2389,9 @@
     document.getElementById('edit-ri-amount').value=ri.amount;
     document.getElementById('edit-ri-optional').checked=ri.optional||false;
     document.getElementById('edit-ri-include-cost').checked=ri.includeCost!==false;
-    document.getElementById('edit-ri-no-amount').checked=ri.noAmount||false;
-    document.getElementById('edit-ri-unit').value=ri.unit||(ing?ing.unit:(ri.ghostUnit||'g'));
-    toggleRiAmountRow();
+    const loadedUnit=ri.noAmount?'as needed':(ri.unit||(ing?ing.unit:(ri.ghostUnit||'g')));
+    document.getElementById('edit-ri-unit').value=loadedUnit;
+    document.getElementById('edit-ri-amount-row').style.display=loadedUnit==='as needed'?'none':'';
     // reset to amount tab — scoped to this modal only
     const modal=document.getElementById('edit-recipe-ing-modal');
     modal.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
@@ -2400,13 +2408,6 @@
     openModal('edit-recipe-ing-modal');
   }
 
-  function toggleRiAmountRow(){
-    const noAmt = document.getElementById('edit-ri-no-amount').checked;
-    document.getElementById('edit-ri-amount-row').style.display = noAmt ? 'none' : '';
-    // auto-uncheck include-cost when no amount
-    if(noAmt) document.getElementById('edit-ri-include-cost').checked = false;
-  }
-
   function toggleRiNameEdit(){
     const area=document.getElementById('edit-ri-name-edit-area');
     area.style.display=area.style.display==='none'?'block':'none';
@@ -2417,9 +2418,9 @@
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const idx=parseInt(document.getElementById('edit-ri-idx').value);
-    const noAmount=document.getElementById('edit-ri-no-amount').checked;
-    const amount=parseFloat(document.getElementById('edit-ri-amount').value);
     const unit=document.getElementById('edit-ri-unit').value;
+    const noAmount=unit==='as needed';
+    const amount=parseFloat(document.getElementById('edit-ri-amount').value);
     const displayName=document.getElementById('edit-ri-display-name').value.trim();
     const notes=document.getElementById('edit-ri-notes').value.trim();
     if(!noAmount && (isNaN(amount)||amount<=0)){alert('Please enter a valid amount.');return;}

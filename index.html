@@ -167,15 +167,15 @@
     <p>Track the true cost of every bake</p>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('pantry',this)">Pantry</button>
-    <button class="tab" onclick="switchTab('recipes',this)">Recipes</button>
+    <button class="tab active" onclick="switchTab('recipes',this)">Recipes</button>
+    <button class="tab" onclick="switchTab('pantry',this)">Pantry</button>
     <button id="vault-header-btn" onclick="handleVaultBtnClick()" class="vault-header-pill no-vault" style="margin-left:auto;margin-bottom:6px;align-self:center">
       ☁️ Back up
     </button>
   </div>
 
   <!-- PANTRY -->
-  <div id="pantry" class="panel active">
+  <div id="pantry" class="panel">
     <div class="card">
       <div class="card-header"><span class="card-title">Add ingredient</span></div>
       <div class="form-row" style="margin-bottom:12px">
@@ -216,7 +216,7 @@
   </div>
 
   <!-- RECIPES -->
-  <div id="recipes" class="panel">
+  <div id="recipes" class="panel active">
     <div id="recipe-list-view">
       <div class="card">
         <div class="card-header">
@@ -2593,8 +2593,8 @@
     updateVaultHeaderBtn();
   }
 
-  renderPantry();
   renderRecipeList();
+  renderPantry();
   initVault();
 
   // Auto-sync from Supabase on page load if vault is already set up

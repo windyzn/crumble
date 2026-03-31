@@ -128,6 +128,13 @@
     .tag-suggestions { position:absolute; top:100%; left:0; right:0; background:var(--white); border:0.5px solid var(--border-strong); border-radius:9px; box-shadow:var(--shadow); z-index:50; margin-top:3px; overflow:hidden; }
     .tag-suggestion-item { padding:8px 12px; font-size:13px; cursor:pointer; transition:background 0.1s; }
     .tag-suggestion-item:hover { background:var(--pink-light); color:var(--pink-dark); }
+    .section-header { display:flex; align-items:center; justify-content:space-between; margin:14px 0 4px; padding:6px 10px; background:var(--pink-light); border-radius:8px; cursor:grab; user-select:none; }
+    .section-header:active { cursor:grabbing; }
+    .section-header-name { font-size:12px; font-weight:600; color:var(--pink-dark); text-transform:uppercase; letter-spacing:0.5px; }
+    .section-header-cost { font-size:12px; color:var(--green-dark); font-weight:500; }
+    .section-header-actions { display:flex; gap:4px; }
+    .drag-handle { cursor:grab; color:var(--muted); font-size:14px; padding:0 4px; }
+    .drag-over { outline:2px dashed var(--pink-mid); border-radius:8px; }
     .vault-card { background:var(--white); border:0.5px solid var(--border-strong); border-radius:20px; padding:2rem; width:min(480px,92vw); box-shadow:0 8px 40px rgba(0,0,0,0.1); }
     .vault-card h2 { font-family:'Poppins',sans-serif; font-size:1.3rem; font-weight:700; margin-bottom:0.35rem; }
     .vault-card p { font-size:13px; color:var(--muted); margin-bottom:1.4rem; line-height:1.6; }
@@ -267,6 +274,7 @@
         <div class="divider"></div>
         <div class="section-title">Add ingredient</div>
         <button class="btn btn-primary" onclick="openPasteModal()" style="width:100%;margin-top:4px">&#9998; Enter ingredients</button>
+        <button class="btn btn-ghost btn-sm" onclick="openAddSectionModal()" style="width:100%;margin-top:6px;font-size:12px;color:var(--pink-dark);border-color:var(--pink)">+ Add section</button>
         <div class="divider"></div>
         <div class="section-row">
           <div class="section-title">Method <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(optional)</span></div>
@@ -544,6 +552,35 @@
   </div>
 </div>
 
+<!-- ADD/EDIT SECTION MODAL -->
+<div class="modal-bg" id="section-modal">
+  <div class="modal">
+    <div class="modal-title" id="section-modal-title">Add section</div>
+    <input type="hidden" id="section-modal-id">
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Section name</label>
+      <input type="text" id="section-modal-name" placeholder="e.g. Frosting, Cake, Filling" style="width:100%">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('section-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSectionModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ASSIGN SECTION MODAL (after paste) -->
+<div class="modal-bg" id="assign-section-modal">
+  <div class="modal">
+    <div class="modal-title">Add to section</div>
+    <p class="modal-subtitle">Which section should these ingredients go in?</p>
+    <div id="assign-section-list" style="margin-bottom:12px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="assignToSection(null)">No section (unsectioned)</button>
+      <button class="btn btn-primary" onclick="confirmAssignSection()">Add to section</button>
+    </div>
+  </div>
+</div>
+
 
 <div id="toast" class="toast"></div>
 
@@ -745,7 +782,7 @@
       });
       if (re) throw re;
 
-      // Delete + re-insert recipe_ingredients (simpler than diffing)
+      // Delete + re-insert recipe_ingredients
       await sb.from('recipe_ingredients').delete().eq('recipe_id', recipe.id);
       if (recipe.ingredients.length) {
         const riRows = recipe.ingredients.map((ri, i) => ({
@@ -759,10 +796,24 @@
           include_cost: ri.includeCost !== false,
           ghost_name: ri.ghostName || null,
           ghost_unit: ri.ghostUnit || null,
+          local_id: ri._localId || null,
           sort_order: i
         }));
         const { error: rie } = await sb.from('recipe_ingredients').insert(riRows);
         if (rie) throw rie;
+      }
+
+      // Delete + re-insert recipe_sections
+      await sb.from('recipe_sections').delete().eq('recipe_id', recipe.id);
+      if (recipe.sections && recipe.sections.length) {
+        const secRows = recipe.sections.map((sec, i) => ({
+          id: sec.id, recipe_id: recipe.id, vault_key: vaultKey,
+          name: sec.name,
+          ingredient_ids: (sec.ingredientIds||[]).join(',') || null,
+          sort_order: i
+        }));
+        const { error: se } = await sb.from('recipe_sections').insert(secRows);
+        if (se) throw se;
       }
     }
   }
@@ -771,14 +822,15 @@
   async function pullFromSupabase(vaultKey) {
     const sb = sbWithKey(vaultKey);
 
-    const [{ data: pantry, error: pe }, { data: recipes, error: re }, { data: ris, error: rie }] =
+    const [{ data: pantry, error: pe }, { data: recipes, error: re }, { data: ris, error: rie }, { data: secs, error: se }] =
       await Promise.all([
         sb.from('pantry_items').select('*'),
         sb.from('recipes').select('*'),
-        sb.from('recipe_ingredients').select('*').order('sort_order')
+        sb.from('recipe_ingredients').select('*').order('sort_order'),
+        sb.from('recipe_sections').select('*').order('sort_order')
       ]);
 
-    if (pe || re || rie) throw pe || re || rie;
+    if (pe || re || rie || se) throw pe || re || rie || se;
 
     state.ingredients = (pantry || []).map(r => ({
       id: r.id, name: r.name, price: r.price,
@@ -797,7 +849,14 @@
           optional: ri.optional || false,
           includeCost: ri.include_cost,
           ghostName: ri.ghost_name || undefined,
-          ghostUnit: ri.ghost_unit || undefined
+          ghostUnit: ri.ghost_unit || undefined,
+          _localId: ri.local_id || undefined
+        }));
+      const sections = (secs || [])
+        .filter(s => s.recipe_id === r.id)
+        .map(s => ({
+          id: s.id, name: s.name,
+          ingredientIds: s.ingredient_ids ? s.ingredient_ids.split(',').filter(Boolean) : []
         }));
       return {
         id: r.id, name: r.name, servings: r.servings,
@@ -806,7 +865,7 @@
         scale: r.scale || 1, bakersPct: r.bakers_pct || false,
         bakersBaseIdx: r.bakers_base_idx ?? undefined,
         tags: r.tags ? r.tags.split(',').filter(Boolean) : [],
-        ingredients
+        ingredients, sections
       };
     });
 
@@ -1314,7 +1373,7 @@
     });
     closeModal('review-modal');
     if(_pendingMissing.length>0) showMissingModal();
-    else applyMatchedIngredients(_pendingMatched);
+    else showAssignSectionModal(_pendingMatched, []);
   }
 
   function showMissingModal(){
@@ -1364,27 +1423,40 @@
     });
     renderPantry();
     closeModal('missing-modal');
-    applyMatchedIngredients([..._pendingMatched,...newlyAdded],ghosts);
+    showAssignSectionModal([..._pendingMatched,...newlyAdded], ghosts);
   }
 
-  function skipMissing(){closeModal('missing-modal');applyMatchedIngredients(_pendingMatched,_pendingMissing);}
+  function skipMissing(){closeModal('missing-modal');showAssignSectionModal(_pendingMatched,_pendingMissing);}
 
-  function applyMatchedIngredients(list,ghosts){
+  function applyMatchedIngredients(list,ghosts,sectionId){
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
+    ensureIngLocalIds(recipe);
     const skipped=[];
+    const newLocalIds=[];
     (list||_pendingMatched).forEach(({parsed,ing})=>{
-      if(recipe.ingredients.some(ri=>ri.ingId===ing.id)){
+      if(recipe.ingredients.some(ri=>String(ri.ingId)===String(ing.id))){
         skipped.push(parsed.name); return;
       }
-      recipe.ingredients.push({ingId:ing.id,amount:parsed.qty,unit:parsed.unit,notes:parsed.notes||undefined});
+      const ri={ingId:ing.id,amount:parsed.qty,unit:parsed.unit,notes:parsed.notes||undefined};
+      recipe.ingredients.push(ri);
+      ensureIngLocalIds(recipe);
+      newLocalIds.push(riLocalId(ri));
     });
     (ghosts||[]).forEach(p=>{
       if(recipe.ingredients.some(ri=>ri.ghostName&&ri.ghostName.toLowerCase()===p.name.toLowerCase())){
         skipped.push(p.name); return;
       }
-      recipe.ingredients.push({ingId:null,ghostName:capitalizeName(p.name),ghostUnit:p.unit,amount:p.qty,notes:p.notes||undefined});
+      const ri={ingId:null,ghostName:capitalizeName(p.name),ghostUnit:p.unit,amount:p.qty,notes:p.notes||undefined};
+      recipe.ingredients.push(ri);
+      ensureIngLocalIds(recipe);
+      newLocalIds.push(riLocalId(ri));
     });
+    // Assign to section if specified
+    if(sectionId && recipe.sections){
+      const sec = recipe.sections.find(s=>s.id===sectionId);
+      if(sec) sec.ingredientIds.push(...newLocalIds);
+    }
     save(); renderRecipeDetail();
     if(skipped.length) showToast(`Already in recipe, skipped: ${skipped.join(', ')}.`);
   }
@@ -1673,6 +1745,180 @@
     return {ri,ing,grams:toGrams(ri.amount,unit)};
   }
 
+  // ── Sections ──────────────────────────────────────────────────────────
+
+  function getSections(recipe){ return recipe.sections || []; }
+
+  function calcSectionCost(recipe, section, scale){
+    return (section.ingredientIds||[]).reduce((sum, iid)=>{
+      const ri = recipe.ingredients.find(x => String(x.ingId||x._localId) === String(iid) || String(x._localId) === String(iid));
+      if(!ri || ri.includeCost===false) return sum;
+      const ing = state.ingredients.find(x=>String(x.id)===String(ri.ingId));
+      if(!ing) return sum;
+      const unit = ri.unit||ing.unit;
+      return sum + ing.costPerUnit * convertAmount((ri.amount*(scale||1)), unit, ing.unit);
+    }, 0);
+  }
+
+  // Give each recipe ingredient a stable _localId for section referencing
+  function ensureIngLocalIds(recipe){
+    recipe.ingredients.forEach((ri,i)=>{
+      if(!ri._localId) ri._localId = ri.ingId ? String(ri.ingId) : ('ghost-'+i+'-'+Date.now());
+    });
+  }
+
+  function riLocalId(ri){ return String(ri._localId || ri.ingId || ''); }
+
+  function openAddSectionModal(){
+    document.getElementById('section-modal-title').textContent = 'Add section';
+    document.getElementById('section-modal-id').value = '';
+    document.getElementById('section-modal-name').value = '';
+    openModal('section-modal');
+    setTimeout(()=>document.getElementById('section-modal-name').focus(), 50);
+  }
+
+  function openEditSectionModal(sectionId){
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe) return;
+    const sec = getSections(recipe).find(s=>s.id===sectionId);
+    if(!sec) return;
+    document.getElementById('section-modal-title').textContent = 'Edit section';
+    document.getElementById('section-modal-id').value = sectionId;
+    document.getElementById('section-modal-name').value = sec.name;
+    openModal('section-modal');
+    setTimeout(()=>document.getElementById('section-modal-name').focus(), 50);
+  }
+
+  function saveSectionModal(){
+    const name = document.getElementById('section-modal-name').value.trim();
+    if(!name){ showToast('Please enter a section name.'); return; }
+    const id   = document.getElementById('section-modal-id').value;
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe) return;
+    if(!recipe.sections) recipe.sections = [];
+    if(id){
+      const sec = recipe.sections.find(s=>s.id===id);
+      if(sec) sec.name = name;
+    } else {
+      recipe.sections.push({ id: crypto.randomUUID(), name, ingredientIds:[] });
+    }
+    save(); closeModal('section-modal'); renderRecipeDetail();
+  }
+
+  function deleteSectionById(sectionId){
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe) return;
+    recipe.sections = (recipe.sections||[]).filter(s=>s.id!==sectionId);
+    save(); renderRecipeDetail();
+  }
+
+  // Move an ingredient from wherever it is into (or out of) a section
+  function moveIngToSection(localId, targetSectionId){
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe||!recipe.sections) return;
+    // Remove from all sections first
+    recipe.sections.forEach(s=>{ s.ingredientIds=(s.ingredientIds||[]).filter(id=>id!==localId); });
+    // Add to target if specified
+    if(targetSectionId){
+      const sec = recipe.sections.find(s=>s.id===targetSectionId);
+      if(sec) sec.ingredientIds.push(localId);
+    }
+    save(); renderRecipeDetail();
+  }
+
+  // Section picker shown after paste if sections exist
+  let _pendingIngredientsForSection = null;
+  function showAssignSectionModal(list, ghosts){
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe || !recipe.sections || !recipe.sections.length){
+      applyMatchedIngredients(list, ghosts); return;
+    }
+    _pendingIngredientsForSection = {list, ghosts};
+    const secs = recipe.sections;
+    document.getElementById('assign-section-list').innerHTML = secs.map(s=>
+      `<label class="link-option">
+        <input type="radio" name="assign-sec-pick" value="${s.id}">
+        <div class="link-option-name">${escHtml(s.name)}</div>
+      </label>`
+    ).join('');
+    openModal('assign-section-modal');
+  }
+
+  function confirmAssignSection(){
+    const picked = document.querySelector('input[name="assign-sec-pick"]:checked');
+    assignToSection(picked ? picked.value : null);
+  }
+
+  function assignToSection(sectionId){
+    closeModal('assign-section-modal');
+    if(!_pendingIngredientsForSection) return;
+    const {list, ghosts} = _pendingIngredientsForSection;
+    _pendingIngredientsForSection = null;
+    applyMatchedIngredients(list, ghosts, sectionId);
+  }
+
+  // ── Drag-to-reorder ────────────────────────────────────────────────────
+  let _dragSectionId = null;
+  let _dragIngLocalId = null;
+  let _dragIngFromSection = null;
+
+  function onSectionDragStart(e, sectionId){
+    _dragSectionId = sectionId; _dragIngLocalId = null;
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function onSectionDragOver(e, sectionId){
+    if(!_dragSectionId) return;
+    e.preventDefault(); e.currentTarget.classList.add('drag-over');
+  }
+  function onSectionDragLeave(e){ e.currentTarget.classList.remove('drag-over'); }
+  function onSectionDrop(e, targetSectionId){
+    e.currentTarget.classList.remove('drag-over');
+    if(!_dragSectionId || _dragSectionId===targetSectionId) return;
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe||!recipe.sections) return;
+    const secs = recipe.sections;
+    const fromIdx = secs.findIndex(s=>s.id===_dragSectionId);
+    const toIdx   = secs.findIndex(s=>s.id===targetSectionId);
+    if(fromIdx<0||toIdx<0) return;
+    secs.splice(toIdx, 0, secs.splice(fromIdx,1)[0]);
+    _dragSectionId = null;
+    save(); renderRecipeDetail();
+  }
+
+  function onIngDragStart(e, localId, sectionId){
+    _dragIngLocalId = localId; _dragIngFromSection = sectionId; _dragSectionId = null;
+    e.dataTransfer.effectAllowed = 'move';
+    e.stopPropagation();
+  }
+  function onIngDragOver(e, localId){
+    if(!_dragIngLocalId) return;
+    e.preventDefault(); e.stopPropagation();
+    e.currentTarget.classList.add('drag-over');
+  }
+  function onIngDragLeave(e){ e.currentTarget.classList.remove('drag-over'); }
+  function onIngDrop(e, targetLocalId, targetSectionId){
+    e.currentTarget.classList.remove('drag-over');
+    e.stopPropagation();
+    if(!_dragIngLocalId || _dragIngLocalId===targetLocalId) return;
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe) return;
+    const ings = recipe.ingredients;
+    const fromIdx = ings.findIndex(ri=>riLocalId(ri)===_dragIngLocalId);
+    const toIdx   = ings.findIndex(ri=>riLocalId(ri)===targetLocalId);
+    if(fromIdx<0||toIdx<0) return;
+    ings.splice(toIdx, 0, ings.splice(fromIdx,1)[0]);
+    // Also sync section membership if dropped into a different section
+    if(_dragIngFromSection !== targetSectionId && recipe.sections){
+      recipe.sections.forEach(s=>{ s.ingredientIds=(s.ingredientIds||[]).filter(id=>id!==_dragIngLocalId); });
+      if(targetSectionId){
+        const sec = recipe.sections.find(s=>s.id===targetSectionId);
+        if(sec) sec.ingredientIds.push(_dragIngLocalId);
+      }
+    }
+    _dragIngLocalId = null; _dragIngFromSection = null;
+    save(); renderRecipeDetail();
+  }
+
   function renderRecipeDetail(){
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
@@ -1730,28 +1976,40 @@
     if(!recipe.ingredients.length){
       breakdown.innerHTML='<div class="empty" style="padding:0.75rem 0">No ingredients yet — add some below.</div>';
     } else {
-      breakdown.innerHTML=recipe.ingredients.map((ri,idx)=>{
+      ensureIngLocalIds(recipe);
+
+      // Build a helper that renders a single ingredient row
+      function riRow(ri, idx, sectionId){
         const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
         const displayUnit=ri.unit||(ing?ing.unit:ri.ghostUnit||'');
         const scaledAmount=ri.amount*scale;
         const displayAmount=scaledAmount%1===0?scaledAmount.toFixed(0):(Math.round(scaledAmount*100)/100).toString();
+        const lid = riLocalId(ri);
         let pctBadge='';
         if(scaledBase && idx!==recipe.bakersBaseIdx && WEIGHT_UNITS.has(displayUnit)){
-          const riGrams=toGrams(scaledAmount,displayUnit);
-          const pct=(riGrams/scaledBase.grams*100);
+          const pct=(toGrams(scaledAmount,displayUnit)/scaledBase.grams*100);
           pctBadge=`<span class="pct-badge">${pct%1===0?pct.toFixed(0):pct.toFixed(1)}%</span>`;
         } else if(scaledBase && idx===recipe.bakersBaseIdx){
           pctBadge=`<span class="pct-badge">100%</span>`;
         }
+        const secOpts = (recipe.sections||[]).map(s=>
+          `<option value="${s.id}" ${sectionId===s.id?'selected':''}>${escHtml(s.name)}</option>`).join('');
+        const secSelect = recipe.sections?.length
+          ? `<select style="font-size:11px;padding:2px 4px;border-radius:5px;border:0.5px solid var(--border-strong);color:var(--muted)" onchange="moveIngToSection('${lid}',this.value||null)">
+              <option value="" ${!sectionId?'selected':''}>—</option>${secOpts}
+             </select>` : '';
+        const drag = `<span class="drag-handle" draggable="true" ondragstart="onIngDragStart(event,'${lid}','${sectionId||''}')" title="Drag to reorder">⠿</span>`;
         if(ing){
           const converted=convertAmount(scaledAmount,displayUnit,ing.unit);
           const lineCost=ri.includeCost===false?0:ing.costPerUnit*converted;
           const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
           const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
-          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}">
-            <span>${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
-            <span style="display:flex;align-items:center;gap:8px">
+          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}" draggable="false"
+            ondragover="onIngDragOver(event,'${lid}')" ondragleave="onIngDragLeave(event)" ondrop="onIngDrop(event,'${lid}','${sectionId||''}')">
+            <span style="display:flex;align-items:center;gap:4px">${drag}${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
+            <span style="display:flex;align-items:center;gap:6px">
+              ${secSelect}
               ${ri.includeCost!==false?`<span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
               <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
@@ -1761,18 +2019,60 @@
           const label=(ri.displayName||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
           const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
-          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}">
-            <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              ${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span>
-            </span>
-            <span style="display:flex;align-items:center;gap:8px">
+          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}" draggable="false"
+            ondragover="onIngDragOver(event,'${lid}')" ondragleave="onIngDragLeave(event)" ondrop="onIngDrop(event,'${lid}','${sectionId||''}')">
+            <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${drag}${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
+            <span style="display:flex;align-items:center;gap:6px">
+              ${secSelect}
               <span class="tag" style="font-size:10px;background:#f0f0ee;color:var(--muted)">no price</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
               <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
             </span>
           </div>`;
         }
-      }).join('');
+      }
+
+      const sections = recipe.sections || [];
+      // Build set of ingredient localIds that belong to a section
+      const sectionedIds = new Set(sections.flatMap(s=>s.ingredientIds||[]));
+
+      let html = '';
+
+      // Unsectioned ingredients first
+      const unsectioned = recipe.ingredients.filter(ri=>!sectionedIds.has(riLocalId(ri)));
+      unsectioned.forEach(ri=>{
+        const idx = recipe.ingredients.indexOf(ri);
+        html += riRow(ri, idx, null);
+      });
+
+      // Sections with drag handles
+      sections.forEach(sec=>{
+        const secIngs = (sec.ingredientIds||[])
+          .map(lid=>recipe.ingredients.find(ri=>riLocalId(ri)===lid))
+          .filter(Boolean);
+        const secCost = calcSectionCost(recipe, sec, scale);
+        html += `<div class="section-header" draggable="true"
+          ondragstart="onSectionDragStart(event,'${sec.id}')"
+          ondragover="onSectionDragOver(event,'${sec.id}')"
+          ondragleave="onSectionDragLeave(event)"
+          ondrop="onSectionDrop(event,'${sec.id}')">
+          <span style="display:flex;align-items:center;gap:6px">
+            <span class="drag-handle">⠿</span>
+            <span class="section-header-name">${escHtml(sec.name)}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <span class="section-header-cost">$${secCost.toFixed(2)}</span>
+            <button class="btn btn-edit" style="padding:3px 8px;font-size:11px" onclick="openEditSectionModal('${sec.id}')">Edit</button>
+            <button class="btn btn-danger" style="padding:3px 8px;font-size:11px" onclick="deleteSectionById('${sec.id}')">✕</button>
+          </span>
+        </div>`;
+        secIngs.forEach(ri=>{
+          const idx = recipe.ingredients.indexOf(ri);
+          html += riRow(ri, idx, sec.id);
+        });
+      });
+
+      breakdown.innerHTML = html;
     }
 
     renderInstructions(recipe);
@@ -1781,6 +2081,12 @@
   function removeRecipeIng(idx){
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
+    const ri = recipe.ingredients[idx];
+    if(ri){
+      const lid = riLocalId(ri);
+      // Remove from any section
+      (recipe.sections||[]).forEach(s=>{ s.ingredientIds=(s.ingredientIds||[]).filter(id=>id!==lid); });
+    }
     recipe.ingredients.splice(idx,1);
     save(); renderRecipeDetail();
   }

@@ -415,7 +415,7 @@
         <label>Notes <em>(optional — e.g. browned, cold, melted)</em></label>
         <input type="text" id="edit-ri-notes" placeholder="e.g. browned" style="width:100%">
       </div>
-      <div class="form-row" style="margin-bottom:12px">
+      <div id="edit-ri-amount-row" class="form-row" style="margin-bottom:12px">
         <div class="form-group">
           <label>Amount used</label>
           <input type="number" id="edit-ri-amount" min="0" step="any">
@@ -432,6 +432,10 @@
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--cream);border-radius:9px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="edit-ri-no-amount" style="accent-color:var(--pink-dark);width:15px;height:15px" onchange="toggleRiAmountRow()">
+          <span>No fixed amount <em style="font-weight:400">(e.g. to taste, as needed)</em></span>
+        </label>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
           <input type="checkbox" id="edit-ri-optional" style="accent-color:var(--pink-dark);width:15px;height:15px">
           <span>Mark as <strong>optional</strong> ingredient</span>
@@ -2147,9 +2151,9 @@
       // Build a helper that renders a single ingredient row
       function riRow(ri, idx, sectionId){
         const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
-        const displayUnit=ri.unit||(ing?ing.unit:ri.ghostUnit||'');
-        const scaledAmount=ri.amount*scale;
-        const displayAmount=scaledAmount%1===0?scaledAmount.toFixed(0):(Math.round(scaledAmount*100)/100).toString();
+        const displayUnit=ri.noAmount?'':( ri.unit||(ing?ing.unit:ri.ghostUnit||''));
+        const scaledAmount=ri.noAmount?0:ri.amount*scale;
+        const displayAmount=ri.noAmount?(ri.notes||'to taste'):(scaledAmount%1===0?scaledAmount.toFixed(0):(Math.round(scaledAmount*100)/100).toString());
         const lid = riLocalId(ri);
         let pctBadge='';
         if(scaledBase && idx!==recipe.bakersBaseIdx && WEIGHT_UNITS.has(displayUnit)){
@@ -2377,7 +2381,9 @@
     document.getElementById('edit-ri-amount').value=ri.amount;
     document.getElementById('edit-ri-optional').checked=ri.optional||false;
     document.getElementById('edit-ri-include-cost').checked=ri.includeCost!==false;
+    document.getElementById('edit-ri-no-amount').checked=ri.noAmount||false;
     document.getElementById('edit-ri-unit').value=ri.unit||(ing?ing.unit:(ri.ghostUnit||'g'));
+    toggleRiAmountRow();
     // reset to amount tab — scoped to this modal only
     const modal=document.getElementById('edit-recipe-ing-modal');
     modal.querySelectorAll('.modal-tab').forEach(b=>b.classList.remove('active'));
@@ -2394,6 +2400,13 @@
     openModal('edit-recipe-ing-modal');
   }
 
+  function toggleRiAmountRow(){
+    const noAmt = document.getElementById('edit-ri-no-amount').checked;
+    document.getElementById('edit-ri-amount-row').style.display = noAmt ? 'none' : '';
+    // auto-uncheck include-cost when no amount
+    if(noAmt) document.getElementById('edit-ri-include-cost').checked = false;
+  }
+
   function toggleRiNameEdit(){
     const area=document.getElementById('edit-ri-name-edit-area');
     area.style.display=area.style.display==='none'?'block':'none';
@@ -2404,22 +2417,26 @@
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const idx=parseInt(document.getElementById('edit-ri-idx').value);
+    const noAmount=document.getElementById('edit-ri-no-amount').checked;
     const amount=parseFloat(document.getElementById('edit-ri-amount').value);
     const unit=document.getElementById('edit-ri-unit').value;
     const displayName=document.getElementById('edit-ri-display-name').value.trim();
     const notes=document.getElementById('edit-ri-notes').value.trim();
-    if(isNaN(amount)||amount<=0){alert('Please enter a valid amount.');return;}
-    recipe.ingredients[idx].amount=amount;
-    recipe.ingredients[idx].unit=unit;
+    if(!noAmount && (isNaN(amount)||amount<=0)){alert('Please enter a valid amount.');return;}
+    recipe.ingredients[idx].noAmount=noAmount||undefined;
+    recipe.ingredients[idx].amount=noAmount?0:amount;
+    recipe.ingredients[idx].unit=noAmount?undefined:unit;
     recipe.ingredients[idx].displayName=displayName||undefined;
     recipe.ingredients[idx].notes=notes||undefined;
     recipe.ingredients[idx].optional=document.getElementById('edit-ri-optional').checked;
-    recipe.ingredients[idx].includeCost=document.getElementById('edit-ri-include-cost').checked;
-    if(!recipe.ingredients[idx].ingId) recipe.ingredients[idx].ghostUnit=unit;
+    recipe.ingredients[idx].includeCost=noAmount?false:document.getElementById('edit-ri-include-cost').checked;
+    if(!noAmount && !recipe.ingredients[idx].ingId) recipe.ingredients[idx].ghostUnit=unit;
     save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
-    const ing=state.ingredients.find(x=>x.id===recipe.ingredients[idx].ingId);
-    if(ing && UNIT_FAMILY[unit] && UNIT_FAMILY[ing.unit] && UNIT_FAMILY[unit]!==UNIT_FAMILY[ing.unit]){
-      showToast(`Unit mismatch: pantry has ${ing.name} in ${ing.unit} (${UNIT_FAMILY[ing.unit]}), but you entered ${unit} (${UNIT_FAMILY[unit]}). Cost can't be calculated accurately.`, 6000);
+    if(!noAmount){
+      const ing=state.ingredients.find(x=>x.id===recipe.ingredients[idx].ingId);
+      if(ing && UNIT_FAMILY[unit] && UNIT_FAMILY[ing.unit] && UNIT_FAMILY[unit]!==UNIT_FAMILY[ing.unit]){
+        showToast(`Unit mismatch: pantry has ${ing.name} in ${ing.unit} (${UNIT_FAMILY[ing.unit]}), but you entered ${unit} (${UNIT_FAMILY[unit]}). Cost can't be calculated accurately.`, 6000);
+      }
     }
   }
 

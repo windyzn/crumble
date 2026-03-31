@@ -121,6 +121,10 @@
     .tag-filter-btn { padding:4px 12px; border-radius:7px; font-size:12px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; border:0.5px solid var(--border-strong); background:none; color:var(--muted); transition:all 0.15s; }
     .tag-filter-btn:hover { border-color:var(--pink-mid); color:var(--pink-dark); }
     .tag-filter-btn.active { background:var(--pink-light); border-color:var(--pink-mid); color:var(--pink-dark); }
+    .tag-context-menu { position:fixed; background:var(--white); border:0.5px solid var(--border-strong); border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.12); z-index:500; min-width:140px; overflow:hidden; }
+    .tag-context-item { padding:9px 14px; font-size:13px; font-family:'DM Sans',sans-serif; cursor:pointer; transition:background 0.1s; }
+    .tag-context-item:hover { background:var(--pink-light); color:var(--pink-dark); }
+    .tag-context-item.danger:hover { background:#FCEBEB; color:#A32D2D; }
     .recipe-tag { display:inline-block; padding:2px 8px; border-radius:5px; font-size:10px; font-weight:500; background:var(--pink-light); color:var(--pink-dark); margin-right:4px; }
     .recipe-group-label { font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; padding:8px 0 4px; margin-top:4px; border-top:0.5px solid var(--border); }
     .recipe-group-label:first-child { border-top:none; margin-top:0; }
@@ -583,6 +587,29 @@
       <button class="btn btn-primary" onclick="saveSectionModal()">Save</button>
     </div>
   </div>
+</div>
+
+<!-- TAG RENAME MODAL -->
+<div class="modal-bg" id="tag-edit-modal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">Edit category</div>
+    <input type="hidden" id="tag-edit-original">
+    <div class="form-group" style="margin-bottom:1rem">
+      <label>Category name</label>
+      <input type="text" id="tag-edit-name" style="width:100%">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" style="margin-right:auto" onclick="deleteTagGlobally()">Delete from all recipes</button>
+      <button class="btn btn-ghost" onclick="closeModal('tag-edit-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTagRename()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAG CONTEXT MENU (injected into body) -->
+<div class="tag-context-menu" id="tag-context-menu" style="display:none">
+  <div class="tag-context-item" onclick="openTagEditModal(_contextTag)">✏️ Rename</div>
+  <div class="tag-context-item danger" onclick="deleteTagGlobally(_contextTag)">✕ Delete from all recipes</div>
 </div>
 
 <!-- ASSIGN SECTION MODAL (after paste) -->
@@ -1533,6 +1560,7 @@
   let _activeTagFilters = new Set();
 
   function toggleTagFilter(tag){
+    hideTagContextMenu();
     if(tag === null){
       _activeTagFilters.clear();
     } else {
@@ -1541,6 +1569,87 @@
     }
     renderRecipeList();
   }
+
+  // ── Tag context menu ───────────────────────────────────────────────────
+  let _contextTag = null;
+  let _longPressTimer = null;
+
+  function showTagContextMenu(e, tag){
+    e.preventDefault();
+    _contextTag = tag;
+    const menu = document.getElementById('tag-context-menu');
+    menu.style.display = 'block';
+    // Position near cursor/touch, keep on screen
+    const x = e.clientX || (e.touches&&e.touches[0]?.clientX) || 0;
+    const y = e.clientY || (e.touches&&e.touches[0]?.clientY) || 0;
+    menu.style.left = Math.min(x, window.innerWidth - 160) + 'px';
+    menu.style.top  = Math.min(y + 4, window.innerHeight - 100) + 'px';
+  }
+
+  function hideTagContextMenu(){
+    document.getElementById('tag-context-menu').style.display = 'none';
+    _contextTag = null;
+  }
+
+  function startTagLongPress(e, tag){
+    if(e.button !== undefined && e.button !== 0) return; // only primary button
+    _longPressTimer = setTimeout(()=>{ showTagContextMenu(e, tag); }, 500);
+  }
+
+  function clearTagLongPress(){
+    clearTimeout(_longPressTimer);
+    _longPressTimer = null;
+  }
+
+  function openTagEditModal(tag){
+    if(!tag) return;
+    hideTagContextMenu();
+    document.getElementById('tag-edit-original').value = tag;
+    document.getElementById('tag-edit-name').value = tag;
+    openModal('tag-edit-modal');
+    setTimeout(()=>document.getElementById('tag-edit-name').focus(), 50);
+  }
+
+  function saveTagRename(){
+    const original = document.getElementById('tag-edit-original').value;
+    const newName  = document.getElementById('tag-edit-name').value.trim().toLowerCase();
+    if(!newName){ showToast('Please enter a category name.'); return; }
+    if(newName === original){ closeModal('tag-edit-modal'); return; }
+    state.recipes.forEach(r=>{
+      if(!r.tags) return;
+      const idx = r.tags.indexOf(original);
+      if(idx !== -1) r.tags[idx] = newName;
+    });
+    // Update active filters
+    if(_activeTagFilters.has(original)){
+      _activeTagFilters.delete(original);
+      _activeTagFilters.add(newName);
+    }
+    save();
+    closeModal('tag-edit-modal');
+    renderRecipeList();
+    showToast(`Renamed "${original}" → "${newName}" across all recipes.`);
+  }
+
+  function deleteTagGlobally(tag){
+    const t = tag || document.getElementById('tag-edit-original').value;
+    if(!t) return;
+    hideTagContextMenu();
+    closeModal('tag-edit-modal');
+    state.recipes.forEach(r=>{
+      if(r.tags) r.tags = r.tags.filter(x=>x!==t);
+    });
+    _activeTagFilters.delete(t);
+    save();
+    renderRecipeList();
+    showToast(`Deleted category "${t}" from all recipes.`);
+  }
+
+  // Dismiss context menu on outside click
+  document.addEventListener('click', e=>{
+    const menu = document.getElementById('tag-context-menu');
+    if(menu && !menu.contains(e.target)) hideTagContextMenu();
+  });
 
   function renderRecipeList(){
     const el=document.getElementById('recipe-list');
@@ -1559,7 +1668,15 @@
       const noneActive=_activeTagFilters.size===0;
       filterBar.innerHTML=[
         `<button class="tag-filter-btn${noneActive?' active':''}" onclick="toggleTagFilter(null)">All</button>`,
-        ...allTags.map(t=>`<button class="tag-filter-btn${_activeTagFilters.has(t)?' active':''}" onclick="toggleTagFilter('${escHtml(t)}')">${escHtml(t)}</button>`)
+        ...allTags.map(t=>`<button class="tag-filter-btn${_activeTagFilters.has(t)?' active':''}"
+          onclick="toggleTagFilter('${escHtml(t)}')"
+          oncontextmenu="showTagContextMenu(event,'${escHtml(t)}');return false;"
+          onmousedown="startTagLongPress(event,'${escHtml(t)}')"
+          onmouseup="clearTagLongPress()"
+          onmouseleave="clearTagLongPress()"
+          ontouchstart="startTagLongPress(event,'${escHtml(t)}')"
+          ontouchend="clearTagLongPress()"
+        >${escHtml(t)}</button>`)
       ].join('');
     } else {
       filterBar.style.display='none';

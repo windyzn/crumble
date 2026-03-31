@@ -435,30 +435,44 @@
     </div>
     <!-- Pantry link tab -->
     <div class="modal-tab-panel" id="ri-tab-link">
-      <p class="modal-subtitle">Link this ingredient to a pantry entry so costs are tracked, or create a new one.</p>
-      <div id="ri-link-list" style="max-height:220px;overflow-y:auto;margin-bottom:12px"></div>
-      <div style="border-top:0.5px solid var(--border);padding-top:12px;margin-bottom:4px">
-        <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.4px">Or create a new pantry entry</div>
-        <div class="form-row" style="margin-bottom:10px">
-          <div class="form-group"><label>Store price ($)</label><input type="number" id="ri-new-price" placeholder="0.00" min="0" step="0.01"></div>
-          <div class="form-group"><label>Package amount</label><input type="number" id="ri-new-qty" placeholder="500" min="0" step="any"></div>
-          <div class="form-group"><label>Unit</label>
-            <select id="ri-new-unit">
-              <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
-              <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
-              <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-group" style="margin-bottom:4px">
-          <label>Store / brand <em>(optional)</em></label>
-          <input type="text" id="ri-new-store" placeholder="e.g. Costco" style="width:100%">
-        </div>
-      </div>
+      <p class="modal-subtitle">Link this ingredient to a pantry entry so costs are tracked.</p>
+      <input type="text" id="ri-link-search" placeholder="Search pantry…" style="width:100%;margin-bottom:8px" oninput="filterRiLinkList()">
+      <div id="ri-link-list" style="max-height:240px;overflow-y:auto;margin-bottom:12px"></div>
       <div class="modal-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openNewPantryFromLinkModal()" style="margin-right:auto;font-size:12px;color:var(--pink-dark);border-color:var(--pink)">+ New pantry entry</button>
         <button class="btn btn-ghost" onclick="closeModal('edit-recipe-ing-modal')">Cancel</button>
         <button class="btn btn-primary" onclick="saveRiLinkEdit()">Save link</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW PANTRY ENTRY FROM LINK MODAL -->
+<div class="modal-bg" id="ri-new-pantry-modal">
+  <div class="modal">
+    <div class="modal-title" id="ri-new-pantry-title">New pantry entry</div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Ingredient name</label>
+      <input type="text" id="ri-new-name" style="width:100%" placeholder="e.g. Bread flour">
+    </div>
+    <div class="form-row" style="margin-bottom:10px">
+      <div class="form-group"><label>Store price ($)</label><input type="number" id="ri-new-price" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="form-group"><label>Package amount</label><input type="number" id="ri-new-qty" placeholder="500" min="0" step="any"></div>
+      <div class="form-group"><label>Unit</label>
+        <select id="ri-new-unit">
+          <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
+          <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
+          <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:4px">
+      <label>Store / brand <em>(optional)</em></label>
+      <input type="text" id="ri-new-store" placeholder="e.g. Costco" style="width:100%">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('ri-new-pantry-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewPantryFromLink()">Add to pantry &amp; link</button>
     </div>
   </div>
 </div>
@@ -2210,31 +2224,13 @@
     modal.querySelectorAll('.modal-tab-panel').forEach(p=>p.classList.remove('active'));
     modal.querySelector('.modal-tab').classList.add('active');
     document.getElementById('ri-tab-amount').classList.add('active');
-    // clear new pantry fields
-    ['ri-new-price','ri-new-qty','ri-new-store'].forEach(id=>document.getElementById(id).value='');
-    // populate link list
+    // clear new pantry fields and search
+    ['ri-new-price','ri-new-qty','ri-new-store'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    const nameEl = document.getElementById('ri-new-name'); if(nameEl) nameEl.value='';
+    const searchEl = document.getElementById('ri-link-search'); if(searchEl) searchEl.value='';
+    // populate link list — sorted alphabetically
     const ghostName=(ri.ghostName||'').toLowerCase();
-    const linkList=document.getElementById('ri-link-list');
-    if(!state.ingredients.length){
-      linkList.innerHTML='<div class="empty" style="padding:0.5rem 0">No pantry entries yet — create one below.</div>';
-    } else {
-      linkList.innerHTML=state.ingredients.map(p=>`
-        <label class="link-option">
-          <input type="radio" name="ri-link-pick" value="${p.id}" ${ri.ingId===p.id?'checked':''}>
-          <div>
-            <div class="link-option-name">${escHtml(p.name)}</div>
-            <div class="link-option-detail">$${p.costPerUnit.toFixed(2)}/${p.unit}${p.store?' &middot; '+escHtml(p.store):''}</div>
-          </div>
-        </label>`).join('');
-      // pre-select best match for ghosts
-      if(!ri.ingId && ghostName){
-        const match=state.ingredients.find(p=>p.name.toLowerCase().includes(ghostName)||ghostName.includes(p.name.toLowerCase()));
-        if(match){
-          const radio=linkList.querySelector(`input[value="${match.id}"]`);
-          if(radio) radio.checked=true;
-        }
-      }
-    }
+    populateRiLinkList(ri, ghostName);
     openModal('edit-recipe-ing-modal');
   }
 
@@ -2267,33 +2263,94 @@
     }
   }
 
+  function populateRiLinkList(ri, ghostName, query){
+    const linkList=document.getElementById('ri-link-list');
+    if(!state.ingredients.length){
+      linkList.innerHTML='<div class="empty" style="padding:0.5rem 0">No pantry entries yet — add one with the button below.</div>';
+      return;
+    }
+    const q=(query||'').toLowerCase().trim();
+    const sorted=[...state.ingredients].sort((a,b)=>a.name.localeCompare(b.name));
+    const filtered=q?sorted.filter(p=>p.name.toLowerCase().includes(q)||(p.store||'').toLowerCase().includes(q)):sorted;
+    if(!filtered.length){
+      linkList.innerHTML='<div class="empty" style="padding:0.5rem 0">No matches.</div>';
+      return;
+    }
+    const currentIngId=document.getElementById('edit-ri-idx').value!==''
+      ? (()=>{ const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId)); const ri=recipe?.ingredients[parseInt(document.getElementById('edit-ri-idx').value)]; return ri?.ingId; })()
+      : null;
+    linkList.innerHTML=filtered.map(p=>`
+      <label class="link-option">
+        <input type="radio" name="ri-link-pick" value="${p.id}" ${String(currentIngId)===String(p.id)?'checked':''}>
+        <div>
+          <div class="link-option-name">${escHtml(p.name)}</div>
+          <div class="link-option-detail">$${p.costPerUnit.toFixed(2)}/${p.unit}${p.store?' &middot; '+escHtml(p.store):''}</div>
+        </div>
+      </label>`).join('');
+    // Auto-select best ghost match if nothing is checked
+    if(!linkList.querySelector('input:checked') && ghostName){
+      const match=filtered.find(p=>p.name.toLowerCase().includes(ghostName)||ghostName.includes(p.name.toLowerCase()));
+      if(match){ const r=linkList.querySelector(`input[value="${match.id}"]`); if(r) r.checked=true; }
+    }
+  }
+
+  function filterRiLinkList(){
+    const q=document.getElementById('ri-link-search').value;
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    const idx=parseInt(document.getElementById('edit-ri-idx').value);
+    const ri=recipe?.ingredients[idx];
+    populateRiLinkList(ri, (ri?.ghostName||'').toLowerCase(), q);
+  }
+
+  function openNewPantryFromLinkModal(){
+    // Pre-fill name from ghost or current ingredient name display
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    const idx=parseInt(document.getElementById('edit-ri-idx').value);
+    const ri=recipe?.ingredients[idx];
+    const suggestedName=ri?.ghostName||ri?.displayName||'';
+    document.getElementById('ri-new-name').value=suggestedName;
+    ['ri-new-price','ri-new-qty','ri-new-store'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    openModal('ri-new-pantry-modal');
+    setTimeout(()=>document.getElementById('ri-new-name').focus(),50);
+  }
+
+  function saveNewPantryFromLink(){
+    const name=capitalizeName(document.getElementById('ri-new-name').value.trim());
+    const price=parseFloat(document.getElementById('ri-new-price').value);
+    const qty=parseFloat(document.getElementById('ri-new-qty').value);
+    const unit=document.getElementById('ri-new-unit').value;
+    const store=toTitleCase(document.getElementById('ri-new-store').value.trim());
+    if(!name||isNaN(price)||isNaN(qty)||qty===0){ showToast('Please fill in name, price, and package size.'); return; }
+    const newIng=addIngredient({name,price,qty,unit,store});
+    if(!newIng) return;
+    // Link to the current recipe ingredient
+    const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    const idx=parseInt(document.getElementById('edit-ri-idx').value);
+    if(recipe&&recipe.ingredients[idx]){
+      const ri=recipe.ingredients[idx];
+      const preservedUnit=ri.unit||ri.ghostUnit;
+      ri.ingId=newIng.id;
+      ri.ghostName=undefined; ri.ghostUnit=undefined;
+      if(preservedUnit) ri.unit=preservedUnit;
+    }
+    renderPantry();
+    save();
+    closeModal('ri-new-pantry-modal');
+    closeModal('edit-recipe-ing-modal');
+    renderRecipeDetail();
+    showToast(`"${name}" added to pantry and linked.`);
+  }
+
   function saveRiLinkEdit(){
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const idx=parseInt(document.getElementById('edit-ri-idx').value);
     const ri=recipe.ingredients[idx];
-    // preserve whatever unit the recipe row already has before we touch anything
     const preservedUnit=ri.unit||ri.ghostUnit;
     const picked=document.querySelector('input[name="ri-link-pick"]:checked');
-    const newPrice=parseFloat(document.getElementById('ri-new-price').value);
-    const newQty=parseFloat(document.getElementById('ri-new-qty').value);
-    const newUnit=document.getElementById('ri-new-unit').value;
-    const newStore=toTitleCase(document.getElementById('ri-new-store').value.trim());
-    const hasNew=!isNaN(newPrice)&&!isNaN(newQty)&&newQty>0;
-    if(hasNew){
-      const ingName=ri.ghostName||(picked?state.ingredients.find(x=>x.id===picked.value)?.name:'New ingredient');
-      const newIng=addIngredient({name:ingName,price:newPrice,qty:newQty,unit:newUnit,store:newStore});
-      if(!newIng) return;
-      ri.ingId=newIng.id;
-      ri.ghostName=undefined; ri.ghostUnit=undefined;
-      renderPantry();
-    } else if(picked){
-      ri.ingId=picked.value;
-      ri.ghostName=undefined; ri.ghostUnit=undefined;
-    } else {
-      alert('Select a pantry entry to link, or fill in the new pantry fields.'); return;
-    }
-    // always restore the recipe-level unit — pantry unit should never overwrite it
+    if(!picked){ showToast('Select a pantry entry to link.'); return; }
+    ri.ingId=picked.value;
+    ri.ghostName=undefined; ri.ghostUnit=undefined;
     if(preservedUnit) ri.unit=preservedUnit;
     save(); closeModal('edit-recipe-ing-modal'); renderRecipeDetail();
   }

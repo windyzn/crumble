@@ -1432,21 +1432,14 @@
     const recipe=state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     ensureIngLocalIds(recipe);
-    const skipped=[];
     const newLocalIds=[];
     (list||_pendingMatched).forEach(({parsed,ing})=>{
-      if(recipe.ingredients.some(ri=>String(ri.ingId)===String(ing.id))){
-        skipped.push(parsed.name); return;
-      }
       const ri={ingId:ing.id,amount:parsed.qty,unit:parsed.unit,notes:parsed.notes||undefined};
       recipe.ingredients.push(ri);
       ensureIngLocalIds(recipe);
       newLocalIds.push(riLocalId(ri));
     });
     (ghosts||[]).forEach(p=>{
-      if(recipe.ingredients.some(ri=>ri.ghostName&&ri.ghostName.toLowerCase()===p.name.toLowerCase())){
-        skipped.push(p.name); return;
-      }
       const ri={ingId:null,ghostName:capitalizeName(p.name),ghostUnit:p.unit,amount:p.qty,notes:p.notes||undefined};
       recipe.ingredients.push(ri);
       ensureIngLocalIds(recipe);
@@ -1458,7 +1451,6 @@
       if(sec) sec.ingredientIds.push(...newLocalIds);
     }
     save(); renderRecipeDetail();
-    if(skipped.length) showToast(`Already in recipe, skipped: ${skipped.join(', ')}.`);
   }
 
   /* RECIPES */
@@ -1762,8 +1754,8 @@
 
   // Give each recipe ingredient a stable _localId for section referencing
   function ensureIngLocalIds(recipe){
-    recipe.ingredients.forEach((ri,i)=>{
-      if(!ri._localId) ri._localId = ri.ingId ? String(ri.ingId) : ('ghost-'+i+'-'+Date.now());
+    recipe.ingredients.forEach(ri=>{
+      if(!ri._localId) ri._localId = crypto.randomUUID();
     });
   }
 

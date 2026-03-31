@@ -1858,64 +1858,89 @@
   }
 
   // ── Drag-to-reorder ────────────────────────────────────────────────────
-  let _dragSectionId = null;
-  let _dragIngLocalId = null;
-  let _dragIngFromSection = null;
+  // One unified drag state — either a section or an ingredient is being dragged
+  let _drag = null; // { type:'section'|'ing', id, fromSectionId }
 
+  function _dragClear(){ _drag = null; }
+
+  // Section drag
   function onSectionDragStart(e, sectionId){
-    _dragSectionId = sectionId; _dragIngLocalId = null;
+    _drag = { type:'section', id:sectionId };
     e.dataTransfer.effectAllowed = 'move';
   }
+
   function onSectionDragOver(e, sectionId){
-    if(!_dragSectionId) return;
-    e.preventDefault(); e.currentTarget.classList.add('drag-over');
+    if(!_drag) return;
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
   }
   function onSectionDragLeave(e){ e.currentTarget.classList.remove('drag-over'); }
+
   function onSectionDrop(e, targetSectionId){
+    e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
-    if(!_dragSectionId || _dragSectionId===targetSectionId) return;
+    if(!_drag) return;
     const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
-    if(!recipe||!recipe.sections) return;
-    const secs = recipe.sections;
-    const fromIdx = secs.findIndex(s=>s.id===_dragSectionId);
-    const toIdx   = secs.findIndex(s=>s.id===targetSectionId);
-    if(fromIdx<0||toIdx<0) return;
-    secs.splice(toIdx, 0, secs.splice(fromIdx,1)[0]);
-    _dragSectionId = null;
+    if(!recipe) return;
+
+    if(_drag.type === 'section'){
+      // Reorder sections
+      if(_drag.id === targetSectionId){ _dragClear(); return; }
+      const secs = recipe.sections || [];
+      const fromIdx = secs.findIndex(s=>s.id===_drag.id);
+      const toIdx   = secs.findIndex(s=>s.id===targetSectionId);
+      if(fromIdx>=0 && toIdx>=0) secs.splice(toIdx, 0, secs.splice(fromIdx,1)[0]);
+
+    } else if(_drag.type === 'ing'){
+      // Move ingredient INTO this section (append to end)
+      if(_drag.fromSectionId === targetSectionId){ _dragClear(); return; }
+      if(!recipe.sections) recipe.sections = [];
+      recipe.sections.forEach(s=>{ s.ingredientIds=(s.ingredientIds||[]).filter(id=>id!==_drag.id); });
+      const sec = recipe.sections.find(s=>s.id===targetSectionId);
+      if(sec) sec.ingredientIds.push(_drag.id);
+    }
+
+    _dragClear();
     save(); renderRecipeDetail();
   }
 
+  // Ingredient drag
   function onIngDragStart(e, localId, sectionId){
-    _dragIngLocalId = localId; _dragIngFromSection = sectionId; _dragSectionId = null;
+    _drag = { type:'ing', id:localId, fromSectionId: sectionId||null };
     e.dataTransfer.effectAllowed = 'move';
-    e.stopPropagation();
+    // Don't stopPropagation — let row be the drag source
   }
+
   function onIngDragOver(e, localId){
-    if(!_dragIngLocalId) return;
-    e.preventDefault(); e.stopPropagation();
+    if(!_drag || _drag.type !== 'ing') return;
+    e.preventDefault();
     e.currentTarget.classList.add('drag-over');
   }
   function onIngDragLeave(e){ e.currentTarget.classList.remove('drag-over'); }
+
   function onIngDrop(e, targetLocalId, targetSectionId){
+    e.preventDefault();
+    e.stopPropagation(); // don't bubble up to a section drop zone
     e.currentTarget.classList.remove('drag-over');
-    e.stopPropagation();
-    if(!_dragIngLocalId || _dragIngLocalId===targetLocalId) return;
+    if(!_drag || _drag.type !== 'ing' || _drag.id === targetLocalId){ _dragClear(); return; }
+
     const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
-    if(!recipe) return;
+    if(!recipe){ _dragClear(); return; }
     const ings = recipe.ingredients;
-    const fromIdx = ings.findIndex(ri=>riLocalId(ri)===_dragIngLocalId);
+    const fromIdx = ings.findIndex(ri=>riLocalId(ri)===_drag.id);
     const toIdx   = ings.findIndex(ri=>riLocalId(ri)===targetLocalId);
-    if(fromIdx<0||toIdx<0) return;
-    ings.splice(toIdx, 0, ings.splice(fromIdx,1)[0]);
-    // Also sync section membership if dropped into a different section
-    if(_dragIngFromSection !== targetSectionId && recipe.sections){
-      recipe.sections.forEach(s=>{ s.ingredientIds=(s.ingredientIds||[]).filter(id=>id!==_dragIngLocalId); });
+    if(fromIdx>=0 && toIdx>=0) ings.splice(toIdx, 0, ings.splice(fromIdx,1)[0]);
+
+    // Sync section membership
+    if(_drag.fromSectionId !== targetSectionId && recipe.sections){
+      recipe.sections.forEach(s=>{ s.ingredientIds=(s.ingredientIds||[]).filter(id=>id!==_drag.id); });
       if(targetSectionId){
         const sec = recipe.sections.find(s=>s.id===targetSectionId);
-        if(sec) sec.ingredientIds.push(_dragIngLocalId);
+        if(sec && !sec.ingredientIds.includes(_drag.id)) sec.ingredientIds.push(_drag.id);
       }
     }
-    _dragIngLocalId = null; _dragIngFromSection = null;
+
+    _dragClear();
     save(); renderRecipeDetail();
   }
 
@@ -1992,24 +2017,18 @@
         } else if(scaledBase && idx===recipe.bakersBaseIdx){
           pctBadge=`<span class="pct-badge">100%</span>`;
         }
-        const secOpts = (recipe.sections||[]).map(s=>
-          `<option value="${s.id}" ${sectionId===s.id?'selected':''}>${escHtml(s.name)}</option>`).join('');
-        const secSelect = recipe.sections?.length
-          ? `<select style="font-size:11px;padding:2px 4px;border-radius:5px;border:0.5px solid var(--border-strong);color:var(--muted)" onchange="moveIngToSection('${lid}',this.value||null)">
-              <option value="" ${!sectionId?'selected':''}>—</option>${secOpts}
-             </select>` : '';
-        const drag = `<span class="drag-handle" draggable="true" ondragstart="onIngDragStart(event,'${lid}','${sectionId||''}')" title="Drag to reorder">⠿</span>`;
+        const drag = `<span class="drag-handle" title="Drag to reorder or into a section">⠿</span>`;
         if(ing){
           const converted=convertAmount(scaledAmount,displayUnit,ing.unit);
           const lineCost=ri.includeCost===false?0:ing.costPerUnit*converted;
           const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
           const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
-          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}" draggable="false"
+          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}cursor:grab" draggable="true"
+            ondragstart="onIngDragStart(event,'${lid}','${sectionId||''}')"
             ondragover="onIngDragOver(event,'${lid}')" ondragleave="onIngDragLeave(event)" ondrop="onIngDrop(event,'${lid}','${sectionId||''}')">
             <span style="display:flex;align-items:center;gap:4px">${drag}${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:6px">
-              ${secSelect}
               ${ri.includeCost!==false?`<span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
               <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
@@ -2019,11 +2038,11 @@
           const label=(ri.displayName||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
           const exclTag=ri.includeCost===false?`<span class="tag tag-pink" style="font-size:10px;margin-left:4px">excl. cost</span>`:'';
-          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}" draggable="false"
+          return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}cursor:grab" draggable="true"
+            ondragstart="onIngDragStart(event,'${lid}','${sectionId||''}')"
             ondragover="onIngDragOver(event,'${lid}')" ondragleave="onIngDragLeave(event)" ondrop="onIngDrop(event,'${lid}','${sectionId||''}')">
             <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${drag}${escHtml(label)}${pctBadge}${optTag}${exclTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
             <span style="display:flex;align-items:center;gap:6px">
-              ${secSelect}
               <span class="tag" style="font-size:10px;background:#f0f0ee;color:var(--muted)">no price</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
               <button class="btn btn-danger" onclick="removeRecipeIng(${idx})">&#10005;</button>
@@ -2059,6 +2078,7 @@
           <span style="display:flex;align-items:center;gap:6px">
             <span class="drag-handle">⠿</span>
             <span class="section-header-name">${escHtml(sec.name)}</span>
+            <span style="font-size:10px;color:var(--pink-dark);opacity:0.6;font-weight:400">↓ drop here</span>
           </span>
           <span style="display:flex;align-items:center;gap:8px">
             <span class="section-header-cost">$${secCost.toFixed(2)}</span>

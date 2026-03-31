@@ -1736,7 +1736,7 @@
     function wrapGrid(html){ return `<div class="recipe-grid">${html}</div>`; }
 
     if(_activeTagFilters.size || !allTags.length){
-      el.innerHTML=wrapGrid(filtered.map(recipePillHtml).join(''));
+      el.innerHTML=wrapGrid(filtered.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(recipePillHtml).join(''));
     } else {
       const grouped={};
       const untagged=[];
@@ -1752,11 +1752,11 @@
       let html='';
       Object.keys(grouped).sort().forEach(g=>{
         html+=`<div class="recipe-group-label">${escHtml(g)}</div>`;
-        html+=wrapGrid(grouped[g].map(recipePillHtml).join(''));
+        html+=wrapGrid(grouped[g].sort((a,b)=>a.name.localeCompare(b.name)).map(recipePillHtml).join(''));
       });
       if(untagged.length){
         if(html) html+=`<div class="recipe-group-label">Other</div>`;
-        html+=wrapGrid(untagged.map(recipePillHtml).join(''));
+        html+=wrapGrid(untagged.sort((a,b)=>a.name.localeCompare(b.name)).map(recipePillHtml).join(''));
       }
       el.innerHTML=html;
     }

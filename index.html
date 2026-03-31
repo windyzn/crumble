@@ -336,7 +336,7 @@
       </div>
     </div>
     <div class="form-group" style="margin-bottom:4px">
-      <label>Categories <em>(optional — comma separated)</em></label>
+      <label><label>Categories <em>(optional — comma separated)</em></label>#9998; Categories <em>(optional — comma separated)</em></label>
       <div class="tag-input-wrap">
         <input type="text" id="edit-recipe-tags" placeholder="e.g. cookies, chocolate, gifting" style="width:100%" autocomplete="off" oninput="showTagSuggestions('edit-recipe-tags','edit-tags-suggestions')" onblur="hideTagSuggestions('edit-tags-suggestions')">
         <div class="tag-suggestions" id="edit-tags-suggestions" style="display:none"></div>
@@ -378,7 +378,7 @@
       </div>
     </div>
     <div class="form-group" style="margin-bottom:4px">
-      <label>Categories <em>(optional — comma separated)</em></label>
+      <label><label>Categories <em>(optional — comma separated)</em></label>#9998; Categories <em>(optional — comma separated)</em></label>
       <div class="tag-input-wrap">
         <input type="text" id="new-recipe-tags" placeholder="e.g. cookies, chocolate, gifting" style="width:100%" autocomplete="off" oninput="showTagSuggestions('new-recipe-tags','new-tags-suggestions')" onblur="hideTagSuggestions('new-tags-suggestions')">
         <div class="tag-suggestions" id="new-tags-suggestions" style="display:none"></div>
@@ -396,7 +396,7 @@
   <div class="modal">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:1.1rem;flex-wrap:wrap">
       <div id="edit-ri-name-display" style="font-family:'Poppins',sans-serif;font-size:1.1rem;font-weight:700"></div>
-      <button class="btn-pencil" onclick="toggleRiNameEdit()" title="Edit name" style="color:var(--pink-dark);transform:rotate(180deg);font-size:14px">&#9998;</button>
+      <button class="btn-pencil" onclick="toggleRiNameEdit()" title="Edit name" style="color:var(--pink-dark);transform:rotate(90deg);font-size:14px">&#9998;</button>
     </div>
     <div id="edit-ri-name-edit-area" style="display:none;margin-bottom:12px">
       <div class="form-group">
@@ -615,7 +615,7 @@
 
 <!-- TAG CONTEXT MENU (injected into body) -->
 <div class="tag-context-menu" id="tag-context-menu" style="display:none">
-  <div class="tag-context-item" onclick="openTagEditModal(_contextTag)">✏️ Rename</div>
+  <div class="tag-context-item" onclick="openTagEditModal(_contextTag)">&#9998; Rename</div>
   <div class="tag-context-item danger" onclick="deleteTagGlobally(_contextTag)">✕ Delete from all recipes</div>
 </div>
 

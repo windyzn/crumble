@@ -1426,7 +1426,7 @@
       else _pendingMissing.push(p);
     });
     closeModal('review-modal');
-    if(_pendingMissing.length>0) showMissingModal();
+    if(_pendingMissing.length>0) showAssignSectionModal(_pendingMatched, _pendingMissing);
     else showAssignSectionModal(_pendingMatched, []);
   }
 

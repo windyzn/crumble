@@ -250,15 +250,15 @@
         </div>
         <div class="divider"></div>
         <div style="margin-bottom:10px">
-          <button onclick="toggleScalePanel()" id="scale-toggle-btn" class="btn btn-ghost btn-sm" style="font-size:12px;color:var(--green-dark);border-color:var(--green-mid)">⇄ Scale recipe</button>
-          <div id="scale-panel" style="display:none;margin-top:8px;padding:10px 12px;background:var(--green-light);border-radius:10px">
+          <button onclick="toggleScalePanel()" id="scale-toggle-btn" class="btn btn-ghost btn-sm" style="font-size:12px;color:var(--pink-dark);border-color:var(--pink-mid)">⇄ Scale recipe</button>
+          <div id="scale-panel" style="display:none;margin-top:8px;padding:10px 12px;background:var(--pink-light);border-radius:10px">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <select id="scale-op" style="font-size:13px;padding:5px 8px;border-color:var(--green-mid);color:var(--green-dark);background:var(--white)" onchange="applyScale()">
+              <select id="scale-op" style="font-size:13px;padding:5px 8px;border-color:var(--pink-mid);color:var(--pink-dark);background:var(--white)" onchange="applyScale()">
                 <option value="multiply">Multiply by</option>
                 <option value="divide">Divide by</option>
               </select>
-              <input type="number" id="scale-factor" min="0.01" step="any" placeholder="2" style="width:80px;font-size:13px;border-color:var(--green-mid)" oninput="applyScale()">
-              <span id="scale-display" style="font-size:12px;font-weight:500;color:var(--green-dark);min-width:40px"></span>
+              <input type="number" id="scale-factor" min="0.01" step="any" placeholder="2" style="width:80px;font-size:13px;border-color:var(--pink-mid)" oninput="applyScale()">
+              <span id="scale-display" style="font-size:12px;font-weight:500;color:var(--pink-dark);min-width:40px"></span>
               <button onclick="resetScale()" class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--muted);margin-left:4px">Reset</button>
             </div>
           </div>
@@ -1680,7 +1680,7 @@
     const btn=document.getElementById('scale-toggle-btn');
     const open=panel.style.display==='none';
     panel.style.display=open?'block':'none';
-    btn.style.background=open?'var(--green-light)':'';
+    btn.style.background=open?'var(--pink-light)':'';
     if(open) document.getElementById('scale-factor').focus();
   }
 

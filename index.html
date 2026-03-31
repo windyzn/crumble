@@ -60,6 +60,12 @@
     .ing-detail { font-size:12px; color:var(--muted); margin-top:2px; }
     .ing-cost { font-size:13px; color:var(--green-dark); font-weight:500; margin-left:auto; white-space:nowrap; }
     .empty { text-align:center; padding:2rem; color:var(--muted); font-size:14px; font-style:italic; }
+    .recipe-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+    .recipe-card { background:var(--pink-light); border-radius:12px; padding:14px; cursor:pointer; transition:background 0.15s; display:flex; flex-direction:column; justify-content:space-between; min-height:110px; }
+    .recipe-card:hover { background:var(--pink); }
+    .recipe-card-name { font-family:'Poppins',sans-serif; font-size:13px; font-weight:700; line-height:1.35; margin-bottom:auto; padding-bottom:10px; }
+    .recipe-card-meta { font-size:11px; color:var(--muted); margin-top:4px; }
+    .recipe-card-cost { font-size:13px; font-weight:600; color:var(--green-dark); margin-top:6px; }
     .recipe-pill { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:var(--pink-light); border-radius:11px; margin-bottom:8px; cursor:pointer; transition:background 0.15s; }
     .recipe-pill:hover { background:var(--pink); }
     .recipe-pill-name { font-family:'Poppins',sans-serif; font-size:14px; font-weight:700; }
@@ -1705,22 +1711,19 @@
 
     function recipePillHtml(r){
       const cost=calcRecipeCost(r);
-      return `<div class="recipe-pill" onclick="openRecipeDetail('${r.id}')">
+      return `<div class="recipe-card" onclick="openRecipeDetail('${r.id}')">
+        <div class="recipe-card-name">${escHtml(r.name)}</div>
         <div>
-          <div class="recipe-pill-name">${escHtml(r.name)}</div>
-          <div class="recipe-pill-meta" style="margin-top:3px">
-            ${r.servings} serving${r.servings!==1?'s':''} &middot; ${r.ingredients.length} ingredient${r.ingredients.length!==1?'s':''}
-          </div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-weight:500;color:var(--green-dark)">$${cost.toFixed(2)}</div>
-          <div style="font-size:11px;color:var(--muted)">total cost</div>
+          <div class="recipe-card-cost">$${cost.toFixed(2)}</div>
+          <div class="recipe-card-meta">${r.servings} serving${r.servings!==1?'s':''} &middot; ${r.ingredients.length} ingredient${r.ingredients.length!==1?'s':''}</div>
         </div>
       </div>`;
     }
 
+    function wrapGrid(html){ return `<div class="recipe-grid">${html}</div>`; }
+
     if(_activeTagFilters.size || !allTags.length){
-      el.innerHTML=filtered.map(recipePillHtml).join('');
+      el.innerHTML=wrapGrid(filtered.map(recipePillHtml).join(''));
     } else {
       const grouped={};
       const untagged=[];
@@ -1736,11 +1739,11 @@
       let html='';
       Object.keys(grouped).sort().forEach(g=>{
         html+=`<div class="recipe-group-label">${escHtml(g)}</div>`;
-        html+=grouped[g].map(recipePillHtml).join('');
+        html+=wrapGrid(grouped[g].map(recipePillHtml).join(''));
       });
       if(untagged.length){
         if(html) html+=`<div class="recipe-group-label">Other</div>`;
-        html+=untagged.map(recipePillHtml).join('');
+        html+=wrapGrid(untagged.map(recipePillHtml).join(''));
       }
       el.innerHTML=html;
     }

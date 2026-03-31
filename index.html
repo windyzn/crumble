@@ -1512,7 +1512,7 @@
   }
 
   function createRecipe(){
-    const name=document.getElementById('new-recipe-name').value.trim();
+    const name=capitalizeName(document.getElementById('new-recipe-name').value.trim());
     const servings=parseInt(document.getElementById('new-recipe-servings').value);
     const yieldDesc=document.getElementById('new-recipe-yield').value.trim();
     const temp=document.getElementById('new-recipe-temp').value.trim();
@@ -2332,7 +2332,7 @@
 
   function saveRecipeEdit(){
     const id=document.getElementById('edit-recipe-id').value;
-    const name=document.getElementById('edit-recipe-name').value.trim();
+    const name=capitalizeName(document.getElementById('edit-recipe-name').value.trim());
     const servings=parseInt(document.getElementById('edit-recipe-servings').value);
     const yieldDesc=document.getElementById('edit-recipe-yield').value.trim();
     const temp=document.getElementById('edit-recipe-temp').value.trim();

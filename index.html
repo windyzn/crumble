@@ -186,7 +186,7 @@
         <div class="form-group"><label>Store price ($)</label><input type="number" id="ing-price" placeholder="3.50" min="0" step="0.01"></div>
         <div class="form-group"><label>Package amount</label><input type="number" id="ing-qty" placeholder="500" min="0" step="any"></div>
         <div class="form-group"><label>Unit</label>
-          <select id="ing-unit">
+          <select id="ing-unit" onchange="document.getElementById('ing-count-to-g-wrap').style.display=this.value==='count'?'':'none'">
             <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
             <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
             <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
@@ -197,6 +197,10 @@
         <div class="form-group" style="flex:2;min-width:140px">
           <label>Store / brand <em>(optional)</em></label>
           <input type="text" id="ing-store" placeholder="e.g. Costco, Bob's Red Mill" style="width:100%">
+        </div>
+        <div class="form-group" id="ing-count-to-g-wrap" style="display:none">
+          <label>1 count = <em>___ g</em></label>
+          <input type="number" id="ing-count-to-g" placeholder="e.g. 50" min="0" step="any" style="width:100px">
         </div>
         <div class="form-group" style="align-self:flex-end">
           <button class="btn btn-primary" onclick="addIngredient()">Add to pantry</button>
@@ -512,7 +516,7 @@
       <div class="form-group"><label>Store price ($)</label><input type="number" id="edit-ing-price" min="0" step="0.01"></div>
       <div class="form-group"><label>Package amount</label><input type="number" id="edit-ing-qty" min="0" step="any"></div>
       <div class="form-group"><label>Unit</label>
-        <select id="edit-ing-unit">
+        <select id="edit-ing-unit" onchange="document.getElementById('edit-ing-count-to-g-wrap').style.display=this.value==='count'?'':'none'">
           <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>
           <option value="ml">ml</option><option value="L">L</option><option value="tsp">tsp</option>
           <option value="tbsp">tbsp</option><option value="cup">cup</option><option value="count">count</option>
@@ -522,6 +526,10 @@
     <div class="form-group" style="margin-bottom:4px">
       <label>Store / brand <em>(optional)</em></label>
       <input type="text" id="edit-ing-store" style="width:100%">
+    </div>
+    <div class="form-group" id="edit-ing-count-to-g-wrap" style="margin-bottom:4px;display:none">
+      <label>1 count = ___ g <em>(optional — for weight-based recipes)</em></label>
+      <input type="number" id="edit-ing-count-to-g" placeholder="e.g. 50" min="0" step="any" style="width:120px">
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('edit-ing-modal')">Cancel</button>
@@ -819,7 +827,8 @@
         id: ing.id, vault_key: vaultKey,
         name: ing.name, price: ing.price, qty: ing.qty,
         unit: ing.unit, store: ing.store || null,
-        cost_per_unit: ing.costPerUnit
+        cost_per_unit: ing.costPerUnit,
+        count_to_grams: ing.countToGrams || null
       }));
       const { error } = await sb.from('pantry_items').upsert(rows);
       if (error) throw error;
@@ -895,7 +904,8 @@
     state.ingredients = (pantry || []).map(r => ({
       id: r.id, name: r.name, price: r.price,
       qty: r.qty, unit: r.unit, store: r.store || '',
-      costPerUnit: r.cost_per_unit
+      costPerUnit: r.cost_per_unit,
+      ...(r.count_to_grams ? {countToGrams: r.count_to_grams} : {})
     }));
 
     state.recipes = (recipes || []).map(r => {
@@ -1210,11 +1220,13 @@
     const qty   = ov ? ov.qty   : parseFloat(document.getElementById('ing-qty').value);
     const unit  = ov ? ov.unit  : document.getElementById('ing-unit').value;
     const store = ov ? (ov.store||'') : toTitleCase(document.getElementById('ing-store').value.trim());
+    const countToGrams = ov ? (ov.countToGrams||null) : (unit==='count' ? (parseFloat(document.getElementById('ing-count-to-g').value)||null) : null);
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in name, store price, and package amount.');return null;}
-    const ing={id:crypto.randomUUID(),name,price,qty,unit,store,costPerUnit:price/qty};
+    const ing={id:crypto.randomUUID(),name,price,qty,unit,store,costPerUnit:price/qty,...(countToGrams?{countToGrams}:{})};
     state.ingredients.push(ing); save();
     if(!ov){
-      ['ing-name','ing-price','ing-qty','ing-store'].forEach(id=>document.getElementById(id).value='');
+      ['ing-name','ing-price','ing-qty','ing-store','ing-count-to-g'].forEach(id=>document.getElementById(id).value='');
+      document.getElementById('ing-count-to-g-wrap').style.display='none';
       renderPantry();
     }
     return ing;
@@ -1239,7 +1251,7 @@
       <div class="ingredient-row">
         <div style="flex:1;min-width:140px">
           <div class="ing-name">${escHtml(ing.name)}</div>
-          <div class="ing-detail">${ing.store?`<span class="tag tag-green" style="margin-right:6px">${escHtml(ing.store)}</span>`:''} $${ing.price.toFixed(2)} for ${ing.qty}${ing.unit}</div>
+          <div class="ing-detail">${ing.store?`<span class="tag tag-green" style="margin-right:6px">${escHtml(ing.store)}</span>`:''} $${ing.price.toFixed(2)} for ${ing.qty}${ing.unit}${ing.countToGrams?` &middot; 1 count = ${ing.countToGrams}g`:''}</div>
         </div>
         <div class="ing-cost">$${ing.costPerUnit.toFixed(2)} / ${ing.unit}</div>
         <button class="btn btn-edit" onclick="openEditIngModalById('${ing.id}')">Edit</button>
@@ -1285,6 +1297,10 @@
     document.getElementById('edit-ing-qty').value=ing.qty;
     document.getElementById('edit-ing-unit').value=ing.unit;
     document.getElementById('edit-ing-store').value=ing.store||'';
+    const ctgWrap = document.getElementById('edit-ing-count-to-g-wrap');
+    const ctgInput = document.getElementById('edit-ing-count-to-g');
+    ctgWrap.style.display = ing.unit==='count' ? '' : 'none';
+    ctgInput.value = ing.countToGrams||'';
     openModal('edit-ing-modal');
   }
 
@@ -1300,10 +1316,12 @@
     const qty=parseFloat(document.getElementById('edit-ing-qty').value);
     const unit=document.getElementById('edit-ing-unit').value;
     const store=toTitleCase(document.getElementById('edit-ing-store').value.trim());
+    const countToGrams=unit==='count'?(parseFloat(document.getElementById('edit-ing-count-to-g').value)||null):null;
     if(!name||isNaN(price)||isNaN(qty)||qty===0){alert('Please fill in all required fields.');return;}
     const ing=state.ingredients.find(x=>String(x.id)===String(id));
     if(!ing) return;
     Object.assign(ing,{name,price,qty,unit,store,costPerUnit:price/qty});
+    if(countToGrams) ing.countToGrams=countToGrams; else delete ing.countToGrams;
     save(); closeModal('edit-ing-modal'); renderPantry();
     if(state.activeRecipeId) renderRecipeDetail();
   }
@@ -1808,6 +1826,12 @@
       const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
       if(!ing) return sum;
       const riUnit=ri.unit||ing.unit;
+      // Cross-family conversion: recipe uses weight, pantry uses count (e.g. eggs in g vs count)
+      if(UNIT_FAMILY[riUnit]==='weight' && ing.unit==='count' && ing.countToGrams){
+        const grams=convertAmount(ri.amount, riUnit, 'g');
+        const countUsed=grams/ing.countToGrams;
+        return sum+ing.costPerUnit*countUsed;
+      }
       const converted=convertAmount(ri.amount,riUnit,ing.unit);
       return sum+ing.costPerUnit*converted;
     },0);
@@ -2187,7 +2211,13 @@
         const drag = `<span class="drag-handle" title="Drag to reorder or into a section">⠿</span>`;
         if(ing){
           const converted=convertAmount(scaledAmount,displayUnit,ing.unit);
-          const lineCost=ri.includeCost===false?0:ing.costPerUnit*converted;
+          const lineCost=ri.includeCost===false?0:(()=>{
+            if(UNIT_FAMILY[displayUnit]==='weight' && ing.unit==='count' && ing.countToGrams){
+              const grams=convertAmount(scaledAmount,displayUnit,'g');
+              return ing.costPerUnit*(grams/ing.countToGrams);
+            }
+            return ing.costPerUnit*converted;
+          })();
           const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
           return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}cursor:grab" draggable="true"
@@ -2450,7 +2480,9 @@
     if(!noAmount){
       const ing=state.ingredients.find(x=>x.id===recipe.ingredients[idx].ingId);
       if(ing && UNIT_FAMILY[unit] && UNIT_FAMILY[ing.unit] && UNIT_FAMILY[unit]!==UNIT_FAMILY[ing.unit]){
-        showToast(`Unit mismatch: pantry has ${ing.name} in ${ing.unit} (${UNIT_FAMILY[ing.unit]}), but you entered ${unit} (${UNIT_FAMILY[unit]}). Cost can't be calculated accurately.`, 6000);
+        // Suppress warning if countToGrams handles the conversion
+        const handled = UNIT_FAMILY[unit]==='weight' && ing.unit==='count' && ing.countToGrams;
+        if(!handled) showToast(`Unit mismatch: pantry has ${ing.name} in ${ing.unit} (${UNIT_FAMILY[ing.unit]}), but you entered ${unit} (${UNIT_FAMILY[unit]}). Cost can't be calculated accurately.`, 6000);
       }
     }
   }

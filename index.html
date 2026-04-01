@@ -1872,13 +1872,13 @@
     // open base picker
     const weightIngs=recipe.ingredients.map((ri,idx)=>{
       const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
-      const unit=ri.unit||(ing?ing.unit:'');
+      const unit=ri.unit||(ing?ing.unit:ri.ghostUnit||'');
       return {ri,ing,idx,unit};
     }).filter(x=>WEIGHT_UNITS.has(x.unit));
     if(!weightIngs.length){showToast('No weight-unit ingredients found to use as a base.');return;}
     document.getElementById('bakers-base-list').innerHTML=weightIngs.map(({ri,ing,idx})=>{
       const label=(ri.displayName||ing?.name||ri.ghostName||'Unknown')+(ri.notes?`, ${ri.notes}`:'');
-      const unit=ri.unit||(ing?ing.unit:'');
+      const unit=ri.unit||(ing?ing.unit:ri.ghostUnit||'');
       return `<label class="link-option">
         <input type="radio" name="bakers-base-pick" value="${idx}" ${recipe.bakersBaseIdx===idx?'checked':''}>
         <div>
@@ -1905,7 +1905,7 @@
     const ri=recipe.ingredients[recipe.bakersBaseIdx];
     if(!ri) return null;
     const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
-    const unit=ri.unit||(ing?ing.unit:'');
+    const unit=ri.unit||(ing?ing.unit:ri.ghostUnit||'');
     if(!WEIGHT_UNITS.has(unit)) return null;
     return {ri,ing,grams:toGrams(ri.amount,unit)};
   }

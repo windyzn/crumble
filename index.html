@@ -266,26 +266,24 @@
           <div id="pricing-output"></div>
         </div>
         <div class="divider"></div>
-        <div style="margin-bottom:10px">
-          <button onclick="toggleScalePanel()" id="scale-toggle-btn" class="btn btn-ghost btn-sm" style="font-size:12px;color:var(--pink-dark);border-color:var(--pink-mid)">⇄ Scale recipe</button>
-          <div id="scale-panel" style="display:none;margin-top:8px;padding:10px 12px;background:var(--pink-light);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <select id="scale-op" style="font-size:13px;padding:5px 8px;border-color:var(--pink-mid);color:var(--pink-dark);background:var(--white)" onchange="applyScale()">
-                <option value="multiply">Multiply by</option>
-                <option value="divide">Divide by</option>
-              </select>
-              <input type="number" id="scale-factor" min="0.01" step="any" placeholder="2" style="width:80px;font-size:13px;border-color:var(--pink-mid)" oninput="applyScale()">
-              <span id="scale-display" style="font-size:12px;font-weight:500;color:var(--pink-dark);min-width:40px"></span>
-              <button onclick="resetScale()" class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--muted);margin-left:4px">Reset</button>
-            </div>
-          </div>
-        </div>
         <div class="section-row">
           <div class="section-title">Ingredient breakdown</div>
-          <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span id="bakers-pct-base-label" style="font-size:11px;color:var(--muted);display:none"></span>
             <button id="bakers-pct-btn" class="btn btn-ghost btn-sm" onclick="toggleBakersPct()" style="font-size:11px">Baker %</button>
             <button id="scale-from-ing-btn" class="btn btn-ghost btn-sm" onclick="toggleScaleFromIng()" style="font-size:11px">Scale from ingredient</button>
+            <button onclick="toggleScalePanel()" id="scale-toggle-btn" class="btn btn-ghost btn-sm" style="font-size:11px">⇄ Scale recipe</button>
+          </div>
+        </div>
+        <div id="scale-panel" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--pink-light);border-radius:10px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="scale-op" style="font-size:13px;padding:5px 8px;border-color:var(--pink-mid);color:var(--pink-dark);background:var(--white)" onchange="applyScale()">
+              <option value="multiply">Multiply by</option>
+              <option value="divide">Divide by</option>
+            </select>
+            <input type="number" id="scale-factor" min="0.01" step="any" placeholder="2" style="width:80px;font-size:13px;border-color:var(--pink-mid)" oninput="applyScale()">
+            <span id="scale-display" style="font-size:12px;font-weight:500;color:var(--pink-dark);min-width:40px"></span>
+            <button onclick="resetScale()" class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--muted);margin-left:4px">Reset</button>
           </div>
         </div>
         <div id="scale-from-ing-panel" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--pink-light);border-radius:10px">

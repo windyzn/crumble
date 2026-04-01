@@ -288,14 +288,14 @@
         </div>
         <div id="scale-from-ing-panel" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--pink-light);border-radius:10px">
           <div style="font-size:12px;font-weight:500;color:var(--pink-dark);margin-bottom:8px">Scale recipe based on one ingredient</div>
-          <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="form-group">
               <label style="font-size:11px">Ingredient</label>
               <select id="scale-from-ing-select" style="font-size:12px;padding:5px 8px;border-color:var(--pink-mid)"></select>
             </div>
             <div class="form-group">
               <label style="font-size:11px">I have</label>
-              <input type="number" id="scale-from-ing-amount" min="0.01" step="any" placeholder="e.g. 100" style="width:90px;font-size:12px;border-color:var(--pink-mid)">
+              <input type="number" id="scale-from-ing-amount" min="0.01" step="any" placeholder="e.g. 100" style="width:90px;font-size:12px;padding:5px 8px;border-color:var(--pink-mid)">
             </div>
             <div class="form-group">
               <label style="font-size:11px">Unit</label>
@@ -304,8 +304,8 @@
                 <option value="oz">oz</option><option value="lb">lb</option>
               </select>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="applyScaleFromIng()" style="font-size:12px">Apply</button>
-            <button class="btn btn-ghost btn-sm" onclick="resetScale()" style="font-size:11px;color:var(--muted)">Reset</button>
+            <button class="btn btn-primary btn-sm" onclick="applyScaleFromIng()" style="font-size:12px;align-self:flex-end">Apply</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetScale()" style="font-size:11px;color:var(--muted);align-self:flex-end">Reset</button>
           </div>
           <div id="scale-from-ing-result" style="font-size:11px;color:var(--pink-dark);margin-top:6px"></div>
         </div>
@@ -1886,7 +1886,11 @@
     const open  = panel.style.display === 'none';
     panel.style.display = open ? 'block' : 'none';
     btn.style.background = open ? 'var(--pink-light)' : '';
-    if(open) populateScaleFromIngSelect();
+    if(open){
+      document.getElementById('scale-from-ing-amount').value = '';
+      document.getElementById('scale-from-ing-result').textContent = '';
+      populateScaleFromIngSelect();
+    }
   }
 
   function populateScaleFromIngSelect(){

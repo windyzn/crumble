@@ -285,7 +285,31 @@
           <div style="display:flex;align-items:center;gap:8px">
             <span id="bakers-pct-base-label" style="font-size:11px;color:var(--muted);display:none"></span>
             <button id="bakers-pct-btn" class="btn btn-ghost btn-sm" onclick="toggleBakersPct()" style="font-size:11px">Baker %</button>
+            <button id="scale-from-ing-btn" class="btn btn-ghost btn-sm" onclick="toggleScaleFromIng()" style="font-size:11px">Scale from ingredient</button>
           </div>
+        </div>
+        <div id="scale-from-ing-panel" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--pink-light);border-radius:10px">
+          <div style="font-size:12px;font-weight:500;color:var(--pink-dark);margin-bottom:8px">Scale recipe based on one ingredient</div>
+          <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+            <div class="form-group">
+              <label style="font-size:11px">Ingredient</label>
+              <select id="scale-from-ing-select" style="font-size:12px;padding:5px 8px;border-color:var(--pink-mid)"></select>
+            </div>
+            <div class="form-group">
+              <label style="font-size:11px">I have</label>
+              <input type="number" id="scale-from-ing-amount" min="0.01" step="any" placeholder="e.g. 100" style="width:90px;font-size:12px;border-color:var(--pink-mid)">
+            </div>
+            <div class="form-group">
+              <label style="font-size:11px">Unit</label>
+              <select id="scale-from-ing-unit" style="font-size:12px;padding:5px 8px;border-color:var(--pink-mid)">
+                <option value="g">g</option><option value="kg">kg</option>
+                <option value="oz">oz</option><option value="lb">lb</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="applyScaleFromIng()" style="font-size:12px">Apply</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetScale()" style="font-size:11px;color:var(--muted)">Reset</button>
+          </div>
+          <div id="scale-from-ing-result" style="font-size:11px;color:var(--pink-dark);margin-top:6px"></div>
         </div>
         <div id="breakdown-list"></div>
         <div class="divider"></div>
@@ -1856,6 +1880,69 @@
   function toGrams(amount, unit){
     const factors={g:1,kg:1000,oz:28.3495,lb:453.592};
     return amount*(factors[unit]||1);
+  }
+
+  function toggleScaleFromIng(){
+    const panel = document.getElementById('scale-from-ing-panel');
+    const btn   = document.getElementById('scale-from-ing-btn');
+    const open  = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    btn.style.background = open ? 'var(--pink-light)' : '';
+    if(open) populateScaleFromIngSelect();
+  }
+
+  function populateScaleFromIngSelect(){
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe) return;
+    const sel = document.getElementById('scale-from-ing-select');
+    // Only weight-unit ingredients make sense as a base
+    const weightIngs = recipe.ingredients
+      .map((ri,idx)=>({ri,idx,ing:state.ingredients.find(x=>String(x.id)===String(ri.ingId))}))
+      .filter(({ri})=>{
+        const u = ri.unit || (state.ingredients.find(x=>String(x.id)===String(ri.ingId))?.unit) || ri.ghostUnit || '';
+        return WEIGHT_UNITS.has(u) && !ri.noAmount;
+      });
+    if(!weightIngs.length){
+      sel.innerHTML='<option disabled>No weight ingredients found</option>';
+      return;
+    }
+    sel.innerHTML = weightIngs.map(({ri,idx,ing})=>{
+      const label = ri.displayName || ing?.name || ri.ghostName || 'Unknown';
+      const unit  = ri.unit || ing?.unit || ri.ghostUnit || 'g';
+      const scale = recipe.scale || 1;
+      const scaledAmt = (ri.amount * scale);
+      const display = scaledAmt%1===0 ? scaledAmt.toFixed(0) : (Math.round(scaledAmt*100)/100).toString();
+      return `<option value="${idx}">${escHtml(label)} (${display} ${unit})</option>`;
+    }).join('');
+    document.getElementById('scale-from-ing-result').textContent = '';
+  }
+
+  function applyScaleFromIng(){
+    const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
+    if(!recipe) return;
+    const idx    = parseInt(document.getElementById('scale-from-ing-select').value);
+    const haveAmt = parseFloat(document.getElementById('scale-from-ing-amount').value);
+    const haveUnit = document.getElementById('scale-from-ing-unit').value;
+    if(isNaN(idx) || isNaN(haveAmt) || haveAmt <= 0){
+      showToast('Please select an ingredient and enter how much you have.'); return;
+    }
+    const ri = recipe.ingredients[idx];
+    if(!ri){ showToast('Ingredient not found.'); return; }
+    const ing  = state.ingredients.find(x=>String(x.id)===String(ri.ingId));
+    const origUnit = ri.unit || ing?.unit || ri.ghostUnit || 'g';
+    if(!WEIGHT_UNITS.has(origUnit) || !WEIGHT_UNITS.has(haveUnit)){
+      showToast('Both units must be weight units (g, kg, oz, lb).'); return;
+    }
+    // Convert both to grams for comparison
+    const origGrams = toGrams(ri.amount, origUnit);
+    const haveGrams = toGrams(haveAmt, haveUnit);
+    if(origGrams === 0){ showToast('Original amount is zero — cannot scale.'); return; }
+    const newScale = haveGrams / origGrams;
+    recipe.scale = Math.round(newScale * 10000) / 10000;
+    save(); renderRecipeDetail();
+    // Show result summary
+    const resultEl = document.getElementById('scale-from-ing-result');
+    if(resultEl) resultEl.textContent = `Scale factor: ×${recipe.scale.toFixed(4).replace(/\.?0+$/, '')}`;
   }
 
   function toggleScalePanel(){

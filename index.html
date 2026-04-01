@@ -336,11 +336,15 @@
       </div>
     </div>
     <div class="form-group" style="margin-bottom:4px">
-      <label><label>Categories <em>(optional — comma separated)</em></label>#9998; Categories <em>(optional — comma separated)</em></label>
+      <label>Categories <em>(optional — comma separated)</em></label>
       <div class="tag-input-wrap">
         <input type="text" id="edit-recipe-tags" placeholder="e.g. cookies, chocolate, gifting" style="width:100%" autocomplete="off" oninput="showTagSuggestions('edit-recipe-tags','edit-tags-suggestions')" onblur="hideTagSuggestions('edit-tags-suggestions')">
         <div class="tag-suggestions" id="edit-tags-suggestions" style="display:none"></div>
       </div>
+    </div>
+    <div class="form-group" style="margin-bottom:4px">
+      <label>Source URL <em>(optional)</em></label>
+      <input type="url" id="edit-recipe-url" placeholder="e.g. https://..." style="width:100%">
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('edit-recipe-modal')">Cancel</button>
@@ -378,11 +382,15 @@
       </div>
     </div>
     <div class="form-group" style="margin-bottom:4px">
-      <label><label>Categories <em>(optional — comma separated)</em></label>#9998; Categories <em>(optional — comma separated)</em></label>
+      <label>Categories <em>(optional — comma separated)</em></label>
       <div class="tag-input-wrap">
         <input type="text" id="new-recipe-tags" placeholder="e.g. cookies, chocolate, gifting" style="width:100%" autocomplete="off" oninput="showTagSuggestions('new-recipe-tags','new-tags-suggestions')" onblur="hideTagSuggestions('new-tags-suggestions')">
         <div class="tag-suggestions" id="new-tags-suggestions" style="display:none"></div>
       </div>
+    </div>
+    <div class="form-group" style="margin-bottom:4px">
+      <label>Source URL <em>(optional)</em></label>
+      <input type="url" id="new-recipe-url" placeholder="e.g. https://..." style="width:100%">
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('recipe-modal')">Cancel</button>
@@ -829,7 +837,8 @@
         scale: recipe.scale || 1,
         bakers_pct: recipe.bakersPct || false,
         bakers_base_idx: recipe.bakersBaseIdx ?? null,
-        tags: (recipe.tags||[]).join(',') || null
+        tags: (recipe.tags||[]).join(',') || null,
+        source_url: recipe.sourceUrl || null
       });
       if (re) throw re;
 
@@ -916,6 +925,7 @@
         scale: r.scale || 1, bakersPct: r.bakers_pct || false,
         bakersBaseIdx: r.bakers_base_idx ?? undefined,
         tags: r.tags ? r.tags.split(',').filter(Boolean) : [],
+        sourceUrl: r.source_url || '',
         ingredients, sections
       };
     });
@@ -1519,7 +1529,7 @@
   /* RECIPES */
   function openNewRecipeModal(){
     ['new-recipe-name','new-recipe-servings','new-recipe-yield',
-     'new-recipe-temp','new-recipe-time','new-recipe-tags']
+     'new-recipe-temp','new-recipe-time','new-recipe-tags','new-recipe-url']
       .forEach(id=>{ document.getElementById(id).value=''; });
     openModal('recipe-modal');
   }
@@ -1531,8 +1541,9 @@
     const temp=document.getElementById('new-recipe-temp').value.trim();
     const cookTime=document.getElementById('new-recipe-time').value.trim();
     const tags=parseTags(document.getElementById('new-recipe-tags').value);
+    const sourceUrl=document.getElementById('new-recipe-url').value.trim();
     if(!name||isNaN(servings)||servings<1){alert('Please enter a recipe name and number of servings.');return;}
-    const recipe={id:crypto.randomUUID(),name,servings,yieldDesc,temp,cookTime,tags,ingredients:[],instructions:''};
+    const recipe={id:crypto.randomUUID(),name,servings,yieldDesc,temp,cookTime,tags,sourceUrl,ingredients:[],instructions:''};
     state.recipes.push(recipe); save(); closeModal('recipe-modal'); renderRecipeList(); openRecipeDetail(recipe.id);
   }
 
@@ -2118,6 +2129,7 @@
       <div>
         <div style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:700">${escHtml(recipe.name)}</div>
         <div style="font-size:13px;color:var(--muted);margin-top:3px">${metaParts.join(' &middot; ')}</div>
+        ${recipe.sourceUrl?`<div style="margin-top:4px"><a href="${escHtml(recipe.sourceUrl)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--pink-dark);text-decoration:none">🔗 Source</a></div>`:''}
         ${tagHtml?`<div style="margin-top:6px">${tagHtml}</div>`:''}
       </div>
       <div style="display:flex;gap:8px">
@@ -2339,6 +2351,7 @@
     document.getElementById('edit-recipe-temp').value=recipe.temp||'';
     document.getElementById('edit-recipe-time').value=recipe.cookTime||'';
     document.getElementById('edit-recipe-tags').value=(recipe.tags||[]).join(', ');
+    document.getElementById('edit-recipe-url').value=recipe.sourceUrl||'';
     openModal('edit-recipe-modal');
   }
 
@@ -2350,10 +2363,11 @@
     const temp=document.getElementById('edit-recipe-temp').value.trim();
     const cookTime=document.getElementById('edit-recipe-time').value.trim();
     const tags=parseTags(document.getElementById('edit-recipe-tags').value);
+    const sourceUrl=document.getElementById('edit-recipe-url').value.trim();
     if(!name||isNaN(servings)||servings<1){alert('Please enter a name and number of servings.');return;}
     const recipe=state.recipes.find(r=>String(r.id)===String(id));
     if(!recipe) return;
-    Object.assign(recipe,{name,servings,yieldDesc,temp,cookTime,tags});
+    Object.assign(recipe,{name,servings,yieldDesc,temp,cookTime,tags,sourceUrl});
     save(); closeModal('edit-recipe-modal'); renderRecipeDetail(); renderRecipeList();
   }
 

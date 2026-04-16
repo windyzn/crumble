@@ -1275,7 +1275,7 @@
           <div class="ing-name">${escHtml(ing.name)}</div>
           <div class="ing-detail">${ing.store?`<span class="tag tag-green" style="margin-right:6px">${escHtml(ing.store)}</span>`:''} $${ing.price.toFixed(2)} for ${ing.qty}${ing.unit}${ing.countToGrams?` &middot; 1 count = ${ing.countToGrams}g`:''}</div>
         </div>
-        <div class="ing-cost">$${ing.costPerUnit.toFixed(2)} / ${ing.unit}</div>
+        <div class="ing-cost">${normalisedCostStr(ing)}</div>
         <button class="btn btn-edit" onclick="openEditIngModalById('${ing.id}')">Edit</button>
         <button class="btn btn-danger" onclick="removeIngredientById('${ing.id}')">✕</button>
         <button class="btn btn-edit" onclick="duplicateIngredient('${ing.id}')" title="Duplicate">⧉</button>
@@ -2507,6 +2507,23 @@
     save(); closeModal('edit-recipe-modal'); renderRecipeDetail(); renderRecipeList();
   }
 
+  // Convert costPerUnit to a normalised base unit for display
+  // Weight → $/g, Volume → $/ml, Count → $/count
+  const UNIT_TO_G  = {g:1, kg:1000, oz:28.3495, lb:453.592};
+  const UNIT_TO_ML = {ml:1, L:1000, tsp:4.92892, tbsp:14.7868, cup:236.588};
+  function normalisedCost(ing){
+    const u = ing.unit;
+    if(UNIT_TO_G[u])  return {cost: ing.costPerUnit / UNIT_TO_G[u],  unit:'g'};
+    if(UNIT_TO_ML[u]) return {cost: ing.costPerUnit / UNIT_TO_ML[u], unit:'ml'};
+    return {cost: ing.costPerUnit, unit: u};
+  }
+  function normalisedCostStr(ing){
+    const n = normalisedCost(ing);
+    // Show more decimals for very small values
+    const decimals = n.cost < 0.01 ? 4 : n.cost < 0.1 ? 3 : 2;
+    return `$${n.cost.toFixed(decimals)} / ${n.unit}`;
+  }
+
   function toTitleCase(str){
     if(!str) return str;
     return str.replace(/\w\S*/g, w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase());
@@ -2614,7 +2631,7 @@
         <input type="radio" name="ri-link-pick" value="${p.id}" ${String(currentIngId)===String(p.id)?'checked':''}>
         <div>
           <div class="link-option-name">${escHtml(p.name)}</div>
-          <div class="link-option-detail">$${p.costPerUnit.toFixed(2)}/${p.unit}${p.store?' &middot; '+escHtml(p.store):''}</div>
+          <div class="link-option-detail">${normalisedCostStr(p)}${p.store?' &middot; '+escHtml(p.store):''}</div>
         </div>
       </label>`).join('');
     // Auto-select best ghost match if nothing is checked

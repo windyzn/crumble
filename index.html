@@ -1795,7 +1795,7 @@
       return `<div class="recipe-card" onclick="openRecipeDetail('${r.id}')">
         <div class="recipe-card-name">${escHtml(r.name)}</div>
         <div>
-          <div class="recipe-card-cost">$${cost.toFixed(2)}</div>
+          <div class="recipe-card-cost">$${cost.toFixed(2)} <span style="font-weight:400;font-size:11px;color:var(--muted)">· $${(cost/r.servings).toFixed(2)}/serving</span></div>
           <div class="recipe-card-meta">${r.servings} serving${r.servings!==1?'s':''} &middot; ${r.ingredients.length} ingredient${r.ingredients.length!==1?'s':''}</div>
         </div>
       </div>`;

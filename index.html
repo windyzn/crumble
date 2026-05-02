@@ -157,6 +157,27 @@
     .vault-header-pill.no-vault:hover { background:var(--pink-light); }
     .vault-header-pill.has-vault { background:none; border:0.5px solid var(--green-mid); color:var(--green-dark); }
     .vault-header-pill.has-vault:hover { background:var(--green-light); }
+    /* Bake Log */
+    .bake-entry { display:flex; justify-content:space-between; align-items:flex-start; padding:11px 0; border-bottom:0.5px solid var(--border); gap:10px; }
+    .bake-entry:last-child { border-bottom:none; }
+    .bake-entry-left { flex:1; min-width:0; }
+    .bake-entry-recipe { font-weight:500; font-size:14px; }
+    .bake-entry-date { font-size:12px; color:var(--muted); margin-top:2px; }
+    .bake-entry-notes { font-size:12px; color:var(--text); margin-top:5px; line-height:1.5; opacity:0.8; }
+    .bake-group-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--pink-light); border-radius:9px; margin-bottom:6px; margin-top:14px; cursor:pointer; }
+    .bake-group-header:first-child { margin-top:0; }
+    .bake-group-name { font-family:'Poppins',sans-serif; font-size:13px; font-weight:700; color:var(--pink-dark); }
+    .bake-group-meta { font-size:12px; color:var(--muted); }
+    .bake-group-entries { margin-bottom:6px; }
+    .bake-group-collapsed .bake-group-entries { display:none; }
+    .bake-stat-card { background:var(--green-light); border-radius:12px; padding:14px; text-align:center; }
+    .bake-stat-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+    .bake-stat-value { font-size:1.4rem; font-family:'Poppins',sans-serif; color:var(--text); font-weight:700; line-height:1.2; }
+    .bake-stat-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+    .bake-bar-wrap { margin-bottom:6px; }
+    .bake-bar-label { display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px; }
+    .bake-bar-track { background:var(--border); border-radius:4px; height:8px; overflow:hidden; }
+    .bake-bar-fill { background:var(--pink-mid); height:100%; border-radius:4px; transition:width 0.4s ease; }
   </style>
 </head>
 <body>
@@ -169,6 +190,7 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('recipes',this)">Recipes</button>
     <button class="tab" onclick="switchTab('pantry',this)">Pantry</button>
+    <button class="tab" onclick="switchTab('bakelog',this)">Bake Log</button>
     <button id="vault-header-btn" onclick="handleVaultBtnClick()" class="vault-header-pill no-vault" style="margin-left:auto;margin-bottom:6px;align-self:center">
       ☁️ Back up
     </button>
@@ -328,6 +350,62 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- BAKE LOG PANEL -->
+<div id="bakelog" class="panel">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Bake Log</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="bakelog-view-toggle" class="btn btn-ghost btn-sm" onclick="toggleBakelogView()" style="font-size:12px">Group by recipe</button>
+      </div>
+    </div>
+    <div id="bakelog-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem"></div>
+    <div id="bakelog-chart" style="margin-bottom:1rem;display:none"></div>
+    <div id="bakelog-list"><div class="empty">No bakes logged yet — open a recipe and hit "Log a bake"!</div></div>
+  </div>
+</div>
+
+<!-- LOG A BAKE MODAL -->
+<div class="modal-bg" id="log-bake-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">Log a bake 🍞</div>
+    <p class="modal-subtitle" id="log-bake-recipe-name" style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:14px"></p>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Date baked</label>
+      <input type="date" id="log-bake-date" style="width:100%">
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Notes <em>(optional — how did it go?)</em></label>
+      <textarea id="log-bake-notes" placeholder="e.g. Used browned butter, turned out perfectly. Will reduce sugar next time." style="min-height:90px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('log-bake-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitLogBake()">Save bake</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT BAKE LOG ENTRY MODAL -->
+<div class="modal-bg" id="edit-bake-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">Edit bake entry</div>
+    <input type="hidden" id="edit-bake-id">
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Date baked</label>
+      <input type="date" id="edit-bake-date" style="width:100%">
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Notes <em>(optional)</em></label>
+      <textarea id="edit-bake-notes" style="min-height:90px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" style="margin-right:auto" onclick="deleteLogBake()">Delete</button>
+      <button class="btn btn-ghost" onclick="closeModal('edit-bake-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditLogBake()">Save</button>
     </div>
   </div>
 </div>
@@ -1061,6 +1139,7 @@
 
       btn.textContent = 'Loading recipes…';
       await pullFromSupabase(key);
+      await pullBakeLogFromSupabase(key);
 
       setVaultMeta({ vaultKey: key, verified: true });
       document.getElementById('vault-verify-screen').style.display = 'none';
@@ -1148,8 +1227,11 @@
     if (btn) { btn.disabled = true; btn.textContent = '↓ Syncing…'; }
     try {
       await pullFromSupabase(meta.vaultKey);
+      await pullBakeLogFromSupabase(meta.vaultKey);
       renderPantry();
       renderRecipeList();
+      const logPanel = document.getElementById('bakelog');
+      if(logPanel?.classList.contains('active')) renderBakeLog();
       if (btn) { btn.textContent = '✓ Synced!'; }
       setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '↓ Sync now'; } }, 2500);
     } catch (err) {
@@ -1203,6 +1285,7 @@
 
   // ── State & persistence ────────────────────────────────────────────────
   let state = JSON.parse(localStorage.getItem('bakebudget_v1')||'null')||{ingredients:[],recipes:[],activeRecipeId:null};
+  loadBakeLog(); // load bakeLog from its own localStorage key
   // ── Persistence: localStorage + async Supabase dual-write ────────────
   function save() {
     localStorage.setItem('bakebudget_v1', JSON.stringify(state));
@@ -1230,6 +1313,7 @@
     btn.classList.add('active');
     document.getElementById(tabId).classList.add('active');
     if(tabId==='recipes') renderRecipeList();
+    if(tabId==='bakelog') renderBakeLog();
   }
 
   function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -2263,6 +2347,7 @@
         ${tagHtml?`<div style="margin-top:6px">${tagHtml}</div>`:''}
       </div>
       <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="openLogBakeModal('${recipe.id}')">Log a bake</button>
         <button class="btn btn-edit" onclick="openEditRecipeModal('${recipe.id}')">Edit</button>
         <button class="btn btn-danger" onclick="deleteRecipe('${recipe.id}')">Delete</button>
       </div>`;
@@ -2749,6 +2834,408 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── Bake Log ──────────────────────────────────────────────────────────
+
+  // bakeLog entries: { id, recipeId, bakedOn (YYYY-MM-DD), notes, createdAt }
+  // Stored in state.bakeLog (local) and synced to Supabase bake_log table
+
+  let _bakelogGrouped = false; // view mode toggle
+
+  function todayIso(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function formatBakeDate(iso){
+    if(!iso) return '';
+    const [y,m,d] = iso.split('-').map(Number);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[m-1]} ${d}, ${y}`;
+  }
+
+  function openLogBakeModal(recipeId){
+    const recipe = state.recipes.find(r=>String(r.id)===String(recipeId));
+    if(!recipe) return;
+    document.getElementById('log-bake-modal').dataset.recipeId = recipeId;
+    document.getElementById('log-bake-recipe-name').textContent = recipe.name;
+    document.getElementById('log-bake-date').value = todayIso();
+    document.getElementById('log-bake-notes').value = '';
+    openModal('log-bake-modal');
+    setTimeout(()=>document.getElementById('log-bake-notes').focus(), 80);
+  }
+
+  async function submitLogBake(){
+    const recipeId = document.getElementById('log-bake-modal').dataset.recipeId;
+    const bakedOn  = document.getElementById('log-bake-date').value;
+    const notes    = document.getElementById('log-bake-notes').value.trim();
+    if(!bakedOn){ showToast('Please select a date.'); return; }
+    const entry = { id: crypto.randomUUID(), recipeId, bakedOn, notes: notes||'', createdAt: new Date().toISOString() };
+    if(!state.bakeLog) state.bakeLog = [];
+    state.bakeLog.unshift(entry);
+    saveBakeLog();
+    closeModal('log-bake-modal');
+    showToast('🍞 Bake logged!');
+    // Push to Supabase
+    const meta = getVaultMeta();
+    if(meta?.vaultKey && meta?.verified){
+      try {
+        const sb = sbWithKey(meta.vaultKey);
+        await sb.from('bake_log').insert({
+          id: entry.id, vault_key: meta.vaultKey,
+          recipe_id: entry.recipeId, baked_on: entry.bakedOn,
+          notes: entry.notes || null
+        });
+      } catch(err){ console.error('Bake log Supabase push failed:', err); }
+    }
+    // Re-render if on bake log tab
+    const logPanel = document.getElementById('bakelog');
+    if(logPanel.classList.contains('active')) renderBakeLog();
+  }
+
+  function openEditBakeModal(entryId){
+    const entry = (state.bakeLog||[]).find(e=>e.id===entryId);
+    if(!entry) return;
+    document.getElementById('edit-bake-id').value = entryId;
+    document.getElementById('edit-bake-date').value = entry.bakedOn;
+    document.getElementById('edit-bake-notes').value = entry.notes||'';
+    openModal('edit-bake-modal');
+  }
+
+  async function saveEditLogBake(){
+    const id      = document.getElementById('edit-bake-id').value;
+    const bakedOn = document.getElementById('edit-bake-date').value;
+    const notes   = document.getElementById('edit-bake-notes').value.trim();
+    if(!bakedOn){ showToast('Please select a date.'); return; }
+    const entry = (state.bakeLog||[]).find(e=>e.id===id);
+    if(!entry) return;
+    entry.bakedOn = bakedOn;
+    entry.notes   = notes;
+    saveBakeLog();
+    closeModal('edit-bake-modal');
+    renderBakeLog();
+    showToast('Entry updated.');
+    // Push to Supabase
+    const meta = getVaultMeta();
+    if(meta?.vaultKey && meta?.verified){
+      try {
+        const sb = sbWithKey(meta.vaultKey);
+        await sb.from('bake_log').update({ baked_on: bakedOn, notes: notes||null }).eq('id', id);
+      } catch(err){ console.error('Bake log update failed:', err); }
+    }
+  }
+
+  async function deleteLogBake(){
+    const id = document.getElementById('edit-bake-id').value;
+    if(!confirm('Delete this bake entry?')) return;
+    state.bakeLog = (state.bakeLog||[]).filter(e=>e.id!==id);
+    saveBakeLog();
+    closeModal('edit-bake-modal');
+    renderBakeLog();
+    showToast('Entry deleted.');
+    const meta = getVaultMeta();
+    if(meta?.vaultKey && meta?.verified){
+      try {
+        const sb = sbWithKey(meta.vaultKey);
+        await sb.from('bake_log').delete().eq('id', id);
+      } catch(err){ console.error('Bake log delete failed:', err); }
+    }
+  }
+
+  function saveBakeLog(){
+    // Persist bakeLog separately in localStorage to avoid ballooning the main state key
+    localStorage.setItem('crumble_bakelog', JSON.stringify(state.bakeLog||[]));
+  }
+
+  function loadBakeLog(){
+    const raw = localStorage.getItem('crumble_bakelog');
+    state.bakeLog = raw ? JSON.parse(raw) : [];
+  }
+
+  function toggleBakelogView(){
+    _bakelogGrouped = !_bakelogGrouped;
+    document.getElementById('bakelog-view-toggle').textContent = _bakelogGrouped ? 'Show recent first' : 'Group by recipe';
+    renderBakeLog();
+  }
+
+  function renderBakeLog(){
+    const log = (state.bakeLog||[]);
+    const statsEl = document.getElementById('bakelog-stats');
+    const listEl  = document.getElementById('bakelog-list');
+    const chartEl = document.getElementById('bakelog-chart');
+
+    // ── Stats ──
+    if(!log.length){
+      statsEl.innerHTML = '';
+      chartEl.style.display = 'none';
+      listEl.innerHTML = '<div class="empty">No bakes logged yet — open a recipe and hit "Log a bake"!</div>';
+      return;
+    }
+
+    const totalBakes = log.length;
+
+    // Most baked recipe
+    const countByRecipe = {};
+    log.forEach(e=>{ countByRecipe[e.recipeId] = (countByRecipe[e.recipeId]||0) + 1; });
+    const topRecipeId = Object.entries(countByRecipe).sort((a,b)=>b[1]-a[1])[0]?.[0];
+    const topRecipe = state.recipes.find(r=>String(r.id)===String(topRecipeId));
+
+    // Bakes this month
+    const thisMonth = todayIso().slice(0,7);
+    const thisMonthCount = log.filter(e=>e.bakedOn.slice(0,7)===thisMonth).length;
+
+    // Best month ever
+    const countByMonth = {};
+    log.forEach(e=>{ const m=e.bakedOn.slice(0,7); countByMonth[m]=(countByMonth[m]||0)+1; });
+    const bestMonthEntry = Object.entries(countByMonth).sort((a,b)=>b[1]-a[1])[0];
+    let bestMonthLabel = '—', bestMonthSub = '';
+    if(bestMonthEntry){
+      const [ym, cnt] = bestMonthEntry;
+      const [y,m] = ym.split('-');
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      bestMonthLabel = `${months[parseInt(m)-1]} ${y}`;
+      bestMonthSub   = `${cnt} bake${cnt!==1?'s':''}`;
+    }
+
+    statsEl.innerHTML = [
+      { label:'Total bakes',  value: totalBakes,  sub: '' },
+      { label:'Most made',    value: topRecipe ? topRecipe.name : '—', sub: topRecipe ? `${countByRecipe[topRecipeId]}× baked` : '', small: true },
+      { label:'This month',   value: thisMonthCount, sub: '' },
+      { label:'Best month',   value: bestMonthLabel, sub: bestMonthSub, small: true },
+    ].map(s=>`<div class="bake-stat-card">
+      <div class="bake-stat-label">${s.label}</div>
+      <div class="bake-stat-value" style="${s.small?'font-size:0.95rem;':''}word-break:break-word">${escHtml(String(s.value))}</div>
+      ${s.sub?`<div class="bake-stat-sub">${escHtml(s.sub)}</div>`:''}
+    </div>`).join('');
+
+    // ── Heatmap ──
+    chartEl.style.display = 'block';
+    chartEl.innerHTML = renderBakeHeatmap(log);
+
+    // ── Mini bar chart: top recipes ──
+    const topN = Object.entries(countByRecipe)
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0,6);
+    if(topN.length > 1){
+      const barHtml = `<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:500;margin-top:16px">Top recipes</div>` +
+        topN.map(([rid, count])=>{
+          const r = state.recipes.find(x=>String(x.id)===String(rid));
+          const name = r ? r.name : 'Deleted recipe';
+          const pct = Math.round(count/topN[0][1]*100);
+          return `<div class="bake-bar-wrap">
+            <div class="bake-bar-label"><span>${escHtml(name)}</span><span style="color:var(--muted)">${count}×</span></div>
+            <div class="bake-bar-track"><div class="bake-bar-fill" style="width:${pct}%"></div></div>
+          </div>`;
+        }).join('');
+      chartEl.innerHTML += barHtml;
+    }
+
+    // ── List ──
+    if(_bakelogGrouped){
+      renderBakelogGrouped(log, listEl, countByRecipe);
+    } else {
+      renderBakelogRecent(log, listEl);
+    }
+  }
+
+  function renderBakeHeatmap(log){
+    // Build a set of YYYY-MM-DD → count
+    const counts = {};
+    log.forEach(e=>{ counts[e.bakedOn] = (counts[e.bakedOn]||0)+1; });
+    const maxCount = Math.max(...Object.values(counts), 1);
+
+    // Generate 52 weeks + partial current week, ending today
+    const today = new Date();
+    // Start from 364 days ago (52 weeks), aligned to Sunday
+    const start = new Date(today);
+    start.setDate(start.getDate() - 364);
+    // Walk back to Sunday
+    start.setDate(start.getDate() - start.getDay());
+
+    // Collect all days in order
+    const days = [];
+    const cur = new Date(start);
+    while(cur <= today){
+      days.push(new Date(cur));
+      cur.setDate(cur.getDate()+1);
+    }
+
+    // Group into weeks (columns)
+    const weeks = [];
+    for(let i=0; i<days.length; i+=7){
+      weeks.push(days.slice(i, i+7));
+    }
+
+    // Month labels: collect unique months and their starting week index
+    const monthLabels = [];
+    weeks.forEach((week, wi)=>{
+      const firstDay = week[0];
+      if(wi===0 || firstDay.getDate() <= 7){
+        const label = firstDay.toLocaleString('default',{month:'short'});
+        // Avoid duplicating the same month label
+        if(!monthLabels.length || monthLabels[monthLabels.length-1].label !== label){
+          monthLabels.push({ label, col: wi });
+        }
+      }
+    });
+
+    // Color scale: 0 → transparent/border, 1 → lightest pink, max → darkest pink
+    function cellColor(count){
+      if(!count) return 'background:var(--cream);border:0.5px solid var(--border)';
+      const intensity = count / maxCount;
+      if(intensity <= 0.25) return `background:var(--pink-light)`;
+      if(intensity <= 0.5)  return `background:var(--pink)`;
+      if(intensity <= 0.75) return `background:var(--pink-mid)`;
+      return `background:var(--pink-dark)`;
+    }
+
+    const cellSize = 12;
+    const cellGap  = 3;
+    const stride   = cellSize + cellGap;
+    const labelH   = 18;
+    const dayLabelW = 22;
+    const totalW   = dayLabelW + weeks.length * stride;
+    const totalH   = labelH + 7 * stride;
+
+    // Build SVG
+    let svgCells = '';
+
+    // Month labels
+    monthLabels.forEach(({label, col})=>{
+      const x = dayLabelW + col * stride;
+      svgCells += `<text x="${x}" y="${labelH-4}" font-size="10" fill="var(--muted)" font-family="DM Sans,sans-serif">${label}</text>`;
+    });
+
+    // Day labels (Mon, Wed, Fri)
+    ['','M','','W','','F',''].forEach((d, di)=>{
+      if(!d) return;
+      const y = labelH + di*stride + cellSize - 1;
+      svgCells += `<text x="0" y="${y}" font-size="10" fill="var(--muted)" font-family="DM Sans,sans-serif">${d}</text>`;
+    });
+
+    // Cells
+    weeks.forEach((week, wi)=>{
+      week.forEach((day, di)=>{
+        if(day > today) return;
+        const iso = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+        const count = counts[iso]||0;
+        const x = dayLabelW + wi*stride;
+        const y = labelH + di*stride;
+        const title = count ? `${formatBakeDate(iso)}: ${count} bake${count!==1?'s':''}` : formatBakeDate(iso);
+        // Determine fill
+        let fill, stroke;
+        if(!count){ fill='var(--cream)'; stroke='var(--border)'; }
+        else {
+          stroke='none';
+          const intensity = count/maxCount;
+          if(intensity<=0.25)      fill='var(--pink-light)';
+          else if(intensity<=0.5)  fill='var(--pink)';
+          else if(intensity<=0.75) fill='var(--pink-mid)';
+          else                     fill='var(--pink-dark)';
+        }
+        svgCells += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="0.5"><title>${title}</title></rect>`;
+      });
+    });
+
+    // Legend
+    const legendY = totalH + 8;
+    const legendItems = [
+      {label:'Less', fill:'var(--cream)', stroke:'var(--border)'},
+      {fill:'var(--pink-light)', stroke:'none'},
+      {fill:'var(--pink)', stroke:'none'},
+      {fill:'var(--pink-mid)', stroke:'none'},
+      {fill:'var(--pink-dark)', stroke:'none', label:'More'},
+    ];
+    let legendX = dayLabelW;
+    svgCells += `<text x="${legendX}" y="${legendY+cellSize-1}" font-size="10" fill="var(--muted)" font-family="DM Sans,sans-serif">Less</text>`;
+    legendX += 30;
+    legendItems.slice(0,-1).forEach(item=>{
+      svgCells += `<rect x="${legendX}" y="${legendY}" width="${cellSize}" height="${cellSize}" rx="2" fill="${item.fill}" stroke="${item.stroke||'none'}" stroke-width="0.5"/>`;
+      legendX += stride + 2;
+    });
+    svgCells += `<rect x="${legendX}" y="${legendY}" width="${cellSize}" height="${cellSize}" rx="2" fill="var(--pink-dark)"/>`;
+    legendX += stride + 4;
+    svgCells += `<text x="${legendX}" y="${legendY+cellSize-1}" font-size="10" fill="var(--muted)" font-family="DM Sans,sans-serif">More</text>`;
+
+    return `
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;font-weight:500">Activity</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <svg width="${totalW}" height="${legendY+cellSize+4}" xmlns="http://www.w3.org/2000/svg">
+          ${svgCells}
+        </svg>
+      </div>`;
+  }
+
+  function renderBakelogRecent(log, listEl){
+    const sorted = [...log].sort((a,b)=>b.bakedOn.localeCompare(a.bakedOn)||b.createdAt.localeCompare(a.createdAt));
+    listEl.innerHTML = sorted.map(e=>{
+      const recipe = state.recipes.find(r=>String(r.id)===String(e.recipeId));
+      const name = recipe ? recipe.name : '<em style="color:var(--muted)">Deleted recipe</em>';
+      return `<div class="bake-entry">
+        <div class="bake-entry-left">
+          <div class="bake-entry-recipe">${recipe ? escHtml(name) : name}</div>
+          <div class="bake-entry-date">${formatBakeDate(e.bakedOn)}</div>
+          ${e.notes?`<div class="bake-entry-notes">${escHtml(e.notes)}</div>`:''}
+        </div>
+        <button class="btn btn-edit" style="flex-shrink:0" onclick="openEditBakeModal('${e.id}')">Edit</button>
+      </div>`;
+    }).join('');
+  }
+
+  function renderBakelogGrouped(log, listEl, countByRecipe){
+    // Sort recipe groups by bake count desc, then recipe name
+    const groups = Object.entries(countByRecipe)
+      .sort((a,b)=>b[1]-a[1]||0)
+      .map(([rid, count])=>{
+        const recipe = state.recipes.find(r=>String(r.id)===String(rid));
+        const entries = log.filter(e=>e.recipeId===rid).sort((a,b)=>b.bakedOn.localeCompare(a.bakedOn));
+        return { rid, recipe, count, entries };
+      });
+
+    listEl.innerHTML = groups.map(({rid, recipe, count, entries})=>{
+      const name = recipe ? escHtml(recipe.name) : '<em>Deleted recipe</em>';
+      const lastDate = formatBakeDate(entries[0]?.bakedOn);
+      const entriesHtml = entries.map(e=>`
+        <div class="bake-entry" style="padding-left:12px">
+          <div class="bake-entry-left">
+            <div class="bake-entry-date">${formatBakeDate(e.bakedOn)}</div>
+            ${e.notes?`<div class="bake-entry-notes">${escHtml(e.notes)}</div>`:''}
+          </div>
+          <button class="btn btn-edit" style="flex-shrink:0" onclick="openEditBakeModal('${e.id}')">Edit</button>
+        </div>`).join('');
+      return `<div class="bake-group" id="bakegroup-${rid}">
+        <div class="bake-group-header" onclick="toggleBakeGroup('${rid}')">
+          <span class="bake-group-name">${name}</span>
+          <span class="bake-group-meta">${count}× &middot; last ${lastDate} <span style="color:var(--pink-mid);margin-left:4px" id="bakegroup-arrow-${rid}">▾</span></span>
+        </div>
+        <div class="bake-group-entries" id="bakegroup-entries-${rid}">${entriesHtml}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function toggleBakeGroup(rid){
+    const entries = document.getElementById(`bakegroup-entries-${rid}`);
+    const arrow   = document.getElementById(`bakegroup-arrow-${rid}`);
+    if(!entries) return;
+    const collapsed = entries.style.display === 'none';
+    entries.style.display = collapsed ? '' : 'none';
+    if(arrow) arrow.textContent = collapsed ? '▾' : '▸';
+  }
+
+  // ── Supabase: pull bake_log entries ───────────────────────────────────
+  async function pullBakeLogFromSupabase(vaultKey){
+    const sb = sbWithKey(vaultKey);
+    const { data, error } = await sb.from('bake_log').select('*').eq('vault_key', vaultKey).order('baked_on', {ascending: false});
+    if(error) throw error;
+    state.bakeLog = (data||[]).map(r=>({
+      id: r.id,
+      recipeId: r.recipe_id,
+      bakedOn: r.baked_on,
+      notes: r.notes||'',
+      createdAt: r.created_at||''
+    }));
+    saveBakeLog();
+  }
+
   // ── Boot ─────────────────────────────────────────────────────────────
   function initVault() {
     const meta = getVaultMeta();
@@ -2773,6 +3260,7 @@
     if (!meta?.vaultKey || !meta?.verified) return;
     try {
       await pullFromSupabase(meta.vaultKey);
+      await pullBakeLogFromSupabase(meta.vaultKey);
       renderPantry();
       renderRecipeList();
     } catch (err) {

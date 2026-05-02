@@ -352,20 +352,20 @@
       </div>
     </div>
   </div>
-</div>
 
-<!-- BAKE LOG PANEL -->
-<div id="bakelog" class="panel">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Bake Log</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="bakelog-view-toggle" class="btn btn-ghost btn-sm" onclick="toggleBakelogView()" style="font-size:12px">Group by recipe</button>
+  <!-- BAKE LOG PANEL -->
+  <div id="bakelog" class="panel">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Bake Log</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="bakelog-view-toggle" class="btn btn-ghost btn-sm" onclick="toggleBakelogView()" style="font-size:12px">Group by recipe</button>
+        </div>
       </div>
+      <div id="bakelog-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem"></div>
+      <div id="bakelog-chart" style="margin-bottom:1rem;display:none"></div>
+      <div id="bakelog-list"><div class="empty">No bakes logged yet — open a recipe and hit "Log a bake"!</div></div>
     </div>
-    <div id="bakelog-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem"></div>
-    <div id="bakelog-chart" style="margin-bottom:1rem;display:none"></div>
-    <div id="bakelog-list"><div class="empty">No bakes logged yet — open a recipe and hit "Log a bake"!</div></div>
   </div>
 </div>
 

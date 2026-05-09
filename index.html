@@ -3464,7 +3464,7 @@
       const pB = b&&totalB ? b.grams/totalB*100 : null;
       const diff = pA!=null&&pB!=null ? pB-pA : null;
       const diffHtml = diff!=null
-        ? `<span class="${diffClass(diff)}">${diffSign(diff)}${diff.toFixed(1)}pp</span>`
+        ? `<span class="${diffClass(diff)}">${diffSign(diff)}${diff.toFixed(1)}%</span>`
         : `<span style="color:var(--muted);font-size:11px">${a?'A only':'B only'}</span>`;
 
       const barA = pA!=null ? Math.round(pA/maxPct*100) : 0;

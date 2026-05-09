@@ -1006,6 +1006,7 @@
           recipe_id: recipe.id, vault_key: vaultKey,
           ing_id: ri.ingId || null,
           amount: ri.amount, unit: ri.unit || null,
+          no_amount: ri.noAmount || false,
           display_name: ri.displayName || null,
           notes: ri.notes || null,
           optional: ri.optional || false,
@@ -1061,6 +1062,7 @@
         .map(ri => ({
           ingId: ri.ing_id || null,
           amount: ri.amount, unit: ri.unit || undefined,
+          noAmount: ri.no_amount || undefined,
           displayName: ri.display_name || undefined,
           notes: ri.notes || undefined,
           optional: ri.optional || false,
@@ -3320,9 +3322,11 @@
   // ── Recipe Comparison ────────────────────────────────────────────────
 
   let _compareRecipeAId = null;
+  let _compareRecipeBId = null;
 
   function openCompareModal(recipeId){
     _compareRecipeAId = recipeId;
+    _compareRecipeBId = null;
     const recipeA = state.recipes.find(r=>String(r.id)===String(recipeId));
     if(!recipeA){ showToast('Recipe not found.'); return; }
     document.getElementById('compare-recipe-a-name').textContent = recipeA.name;
@@ -3380,11 +3384,13 @@
   }
 
   function showComparePick(){
+    _compareRecipeBId = null;
     document.getElementById('compare-pick-screen').style.display = '';
     document.getElementById('compare-result-screen').style.display = 'none';
   }
 
   function runCompare(recipeBId){
+    _compareRecipeBId = recipeBId;
     const recipeA = state.recipes.find(r=>String(r.id)===String(_compareRecipeAId));
     const recipeB = state.recipes.find(r=>String(r.id)===String(recipeBId));
     if(!recipeA||!recipeB) return;

@@ -178,6 +178,27 @@
     .bake-bar-label { display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px; }
     .bake-bar-track { background:var(--border); border-radius:4px; height:8px; overflow:hidden; }
     .bake-bar-fill { background:var(--pink-mid); height:100%; border-radius:4px; transition:width 0.4s ease; }
+    /* Compare modal */
+    .compare-pick-item { padding:10px 14px; cursor:pointer; border-bottom:0.5px solid var(--border); font-size:13px; display:flex; justify-content:space-between; align-items:center; }
+    .compare-pick-item:last-child { border-bottom:none; }
+    .compare-pick-item:hover { background:var(--pink-light); }
+    .compare-pick-tag { font-size:11px; color:var(--muted); background:var(--cream); border-radius:6px; padding:2px 7px; }
+    .compare-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .compare-table th { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--border); text-align:right; }
+    .compare-table th:first-child { text-align:left; }
+    .compare-table td { padding:8px 8px; border-bottom:0.5px solid var(--border); vertical-align:middle; text-align:right; }
+    .compare-table td:first-child { text-align:left; font-weight:500; }
+    .compare-table tr:last-child td { border-bottom:none; }
+    .compare-diff-pos { color:#2e7d32; font-weight:600; }
+    .compare-diff-neg { color:#a32d2d; font-weight:600; }
+    .compare-diff-zero { color:var(--muted); }
+    .compare-section-header { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); font-weight:500; padding:12px 0 6px; border-bottom:1px solid var(--border); margin-bottom:2px; }
+    .compare-nonweight { margin-top:18px; padding-top:14px; border-top:0.5px solid var(--border); }
+    .compare-nonweight-title { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; font-weight:500; }
+    .compare-bar-wrap { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+    .compare-bar-track { width:60px; background:var(--border); border-radius:3px; height:6px; overflow:hidden; flex-shrink:0; }
+    .compare-bar-fill-a { background:var(--pink-mid); height:100%; border-radius:3px; }
+    .compare-bar-fill-b { background:var(--green-mid); height:100%; border-radius:3px; }
   </style>
 </head>
 <body>
@@ -408,6 +429,30 @@
       <button class="btn btn-danger" style="margin-right:auto" onclick="deleteLogBake()">Delete</button>
       <button class="btn btn-ghost" onclick="closeModal('edit-bake-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditLogBake()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMPARE RECIPES MODAL -->
+<div class="modal-bg" id="compare-modal">
+  <div class="modal" style="max-width:700px;width:95vw">
+    <div class="modal-title">Compare recipes</div>
+    <div id="compare-pick-screen">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
+        Comparing <strong id="compare-recipe-a-name"></strong> with:
+      </div>
+      <input type="text" id="compare-search" placeholder="Search recipes…" style="width:100%;margin-bottom:10px" oninput="filterCompareList()">
+      <div id="compare-recipe-list" style="max-height:280px;overflow-y:auto;border:0.5px solid var(--border);border-radius:10px"></div>
+    </div>
+    <div id="compare-result-screen" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <button class="btn btn-ghost btn-sm" onclick="showComparePick()">← Pick different recipe</button>
+        <span id="compare-result-subtitle" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div id="compare-result-content"></div>
+    </div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-ghost" onclick="closeModal('compare-modal')">Close</button>
     </div>
   </div>
 </div>
@@ -2378,8 +2423,9 @@
         ${recipe.sourceUrl?`<div style="margin-top:4px"><a href="${escHtml(recipe.sourceUrl)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--pink-dark);text-decoration:none">🔗 Source</a></div>`:''}
         ${tagHtml?`<div style="margin-top:6px">${tagHtml}</div>`:''}
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" onclick="openLogBakeModal('${recipe.id}')">Log a bake</button>
+        <button class="btn btn-ghost btn-sm" onclick="openCompareModal('${recipe.id}')">Compare</button>
         <button class="btn btn-edit" onclick="openEditRecipeModal('${recipe.id}')">Edit</button>
         <button class="btn btn-danger" onclick="deleteRecipe('${recipe.id}')">Delete</button>
       </div>`;
@@ -3269,6 +3315,221 @@
       createdAt: r.created_at||''
     }));
     saveBakeLog();
+  }
+
+  // ── Recipe Comparison ────────────────────────────────────────────────
+
+  let _compareRecipeAId = null;
+
+  function openCompareModal(recipeId){
+    _compareRecipeAId = recipeId;
+    const recipeA = state.recipes.find(r=>String(r.id)===String(recipeId));
+    if(!recipeA){ showToast('Recipe not found.'); return; }
+    document.getElementById('compare-recipe-a-name').textContent = recipeA.name;
+    document.getElementById('compare-search').value = '';
+    document.getElementById('compare-pick-screen').style.display = '';
+    document.getElementById('compare-result-screen').style.display = 'none';
+    populateCompareList(recipeA);
+    openModal('compare-modal');
+    setTimeout(()=>document.getElementById('compare-search').focus(), 80);
+  }
+
+  function populateCompareList(recipeA, query=''){
+    const listEl = document.getElementById('compare-recipe-list');
+    // Same tag group: recipes that share at least one tag with recipeA
+    const aTags = new Set((recipeA.tags||[]).map(t=>t.toLowerCase()));
+    let candidates = state.recipes.filter(r=>String(r.id)!==String(recipeA.id));
+
+    // Sort: same-tag first, then rest alphabetically
+    const sameTag = candidates.filter(r=>(r.tags||[]).some(t=>aTags.has(t.toLowerCase())));
+    const other   = candidates.filter(r=>!(r.tags||[]).some(t=>aTags.has(t.toLowerCase())));
+
+    let grouped = [
+      { label: sameTag.length ? `Same category as "${recipeA.tags?.[0]||'this recipe'}"` : null, items: sameTag },
+      { label: 'Other recipes', items: other },
+    ].filter(g=>g.items.length);
+
+    // Apply search filter
+    if(query){
+      const q = query.toLowerCase();
+      grouped = grouped.map(g=>({ ...g, items: g.items.filter(r=>r.name.toLowerCase().includes(q)) })).filter(g=>g.items.length);
+    }
+
+    if(!grouped.length || !grouped.some(g=>g.items.length)){
+      listEl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">No other recipes found.</div>';
+      return;
+    }
+
+    listEl.innerHTML = grouped.map(g=>`
+      ${g.label ? `<div style="font-size:11px;color:var(--muted);padding:8px 14px 4px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;background:var(--cream)">${escHtml(g.label)}</div>` : ''}
+      ${g.items.map(r=>{
+        const tags = (r.tags||[]).map(t=>`<span class="compare-pick-tag">${escHtml(t)}</span>`).join(' ');
+        return `<div class="compare-pick-item" onclick="runCompare('${r.id}')">
+          <span>${escHtml(r.name)}</span>
+          <span>${tags}</span>
+        </div>`;
+      }).join('')}
+    `).join('');
+  }
+
+  function filterCompareList(){
+    const recipeA = state.recipes.find(r=>String(r.id)===String(_compareRecipeAId));
+    if(!recipeA) return;
+    const q = document.getElementById('compare-search').value.trim();
+    populateCompareList(recipeA, q);
+  }
+
+  function showComparePick(){
+    document.getElementById('compare-pick-screen').style.display = '';
+    document.getElementById('compare-result-screen').style.display = 'none';
+  }
+
+  function runCompare(recipeBId){
+    const recipeA = state.recipes.find(r=>String(r.id)===String(_compareRecipeAId));
+    const recipeB = state.recipes.find(r=>String(r.id)===String(recipeBId));
+    if(!recipeA||!recipeB) return;
+
+    document.getElementById('compare-pick-screen').style.display = 'none';
+    document.getElementById('compare-result-screen').style.display = '';
+    document.getElementById('compare-result-subtitle').textContent =
+      `${recipeA.name} (A) vs ${recipeB.name} (B)`;
+
+    // Build ingredient maps: pantry ingId → { name, grams (per serving), unit, noAmount }
+    function buildIngMap(recipe){
+      const servings = recipe.servings || 1;
+      const map = {};
+      const nonWeight = [];
+      recipe.ingredients.forEach(ri=>{
+        if(ri.noAmount) return;
+        const ing = state.ingredients.find(x=>String(x.id)===String(ri.ingId));
+        const unit = ri.unit || ing?.unit || ri.ghostUnit || '';
+        const name = ri.displayName || ing?.name || ri.ghostName || 'Unknown';
+        const key  = ri.ingId ? String(ri.ingId) : `ghost:${name.toLowerCase()}`;
+        if(WEIGHT_UNITS.has(unit)){
+          const grams = toGrams(ri.amount, unit) / servings;
+          if(map[key]) map[key].grams += grams;
+          else map[key] = { name, grams, unit };
+        } else {
+          nonWeight.push({ name, unit, amount: ri.amount != null ? ri.amount / servings : null, key });
+        }
+      });
+      return { map, nonWeight };
+    }
+
+    const { map: mapA, nonWeight: nwA } = buildIngMap(recipeA);
+    const { map: mapB, nonWeight: nwB } = buildIngMap(recipeB);
+
+    const totalA = Object.values(mapA).reduce((s,v)=>s+v.grams,0);
+    const totalB = Object.values(mapB).reduce((s,v)=>s+v.grams,0);
+
+    // Union of all ingredient keys
+    const allKeys = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])];
+
+    // Sort: shared first (by A's %), then A-only, then B-only
+    allKeys.sort((ka,kb)=>{
+      const inBoth = (k=>mapA[k]&&mapB[k]);
+      if(inBoth(ka)&&!inBoth(kb)) return -1;
+      if(!inBoth(ka)&&inBoth(kb)) return 1;
+      const pctA_a = mapA[ka] ? mapA[ka].grams/totalA : 0;
+      const pctA_b = mapA[kb] ? mapA[kb].grams/totalA : 0;
+      return pctA_b - pctA_a;
+    });
+
+    function fmtPct(v){ return v!=null ? v.toFixed(1)+'%' : '—'; }
+    function fmtG(g){ return g!=null ? (Math.round(g*10)/10)+'g' : '—'; }
+    function diffClass(d){ return d>0.5?'compare-diff-pos':d<-0.5?'compare-diff-neg':'compare-diff-zero'; }
+    function diffSign(d){ return d>0?'+':''; }
+
+    const maxPct = Math.max(...allKeys.map(k=>{
+      const pA = mapA[k]?mapA[k].grams/totalA*100:0;
+      const pB = mapB[k]?mapB[k].grams/totalB*100:0;
+      return Math.max(pA,pB);
+    }),1);
+
+    const rows = allKeys.map(k=>{
+      const a = mapA[k], b = mapB[k];
+      const pA = a&&totalA ? a.grams/totalA*100 : null;
+      const pB = b&&totalB ? b.grams/totalB*100 : null;
+      const diff = pA!=null&&pB!=null ? pB-pA : null;
+      const diffHtml = diff!=null
+        ? `<span class="${diffClass(diff)}">${diffSign(diff)}${diff.toFixed(1)}pp</span>`
+        : `<span style="color:var(--muted);font-size:11px">${a?'A only':'B only'}</span>`;
+
+      const barA = pA!=null ? Math.round(pA/maxPct*100) : 0;
+      const barB = pB!=null ? Math.round(pB/maxPct*100) : 0;
+      const name = a?.name || b?.name || k;
+
+      return `<tr>
+        <td>${escHtml(name)}</td>
+        <td>
+          <div class="compare-bar-wrap">
+            <span style="min-width:38px;font-size:12px">${fmtPct(pA)}</span>
+            <div class="compare-bar-track"><div class="compare-bar-fill-a" style="width:${barA}%"></div></div>
+          </div>
+        </td>
+        <td>
+          <div class="compare-bar-wrap">
+            <span style="min-width:38px;font-size:12px">${fmtPct(pB)}</span>
+            <div class="compare-bar-track"><div class="compare-bar-fill-b" style="width:${barB}%"></div></div>
+          </div>
+        </td>
+        <td>${diffHtml}</td>
+      </tr>`;
+    }).join('');
+
+    // Non-weight section
+    const nwAllNames = [...new Set([...nwA.map(x=>x.name), ...nwB.map(x=>x.name)])].sort();
+    const nwHtml = nwAllNames.length ? `
+      <div class="compare-nonweight">
+        <div class="compare-nonweight-title">Non-weight ingredients (not comparable)</div>
+        <table class="compare-table">
+          <thead><tr>
+            <th>Ingredient</th>
+            <th style="text-align:right">A</th>
+            <th style="text-align:right">B</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+          ${nwAllNames.map(name=>{
+            const a = nwA.find(x=>x.name===name);
+            const b = nwB.find(x=>x.name===name);
+            const fmtRaw = x=>x ? `${x.amount!=null?(Math.round(x.amount*100)/100):''} ${x.unit||''}`.trim() : '—';
+            return `<tr>
+              <td>${escHtml(name)}</td>
+              <td><span style="font-size:12px;color:var(--muted)">${fmtRaw(a)}</span></td>
+              <td><span style="font-size:12px;color:var(--muted)">${fmtRaw(b)}</span></td>
+              <td></td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>` : '';
+
+    document.getElementById('compare-result-content').innerHTML = `
+      <div style="display:flex;gap:16px;margin-bottom:12px;font-size:12px;flex-wrap:wrap">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--pink-mid);margin-right:5px;vertical-align:middle"></span><strong>A</strong> — ${escHtml(recipeA.name)} (${fmtG(totalA)}/serving × ${recipeA.servings||1})</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green-mid);margin-right:5px;vertical-align:middle"></span><strong>B</strong> — ${escHtml(recipeB.name)} (${fmtG(totalB)}/serving × ${recipeB.servings||1})</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="compare-table">
+          <thead><tr>
+            <th>Ingredient</th>
+            <th style="text-align:right">A %</th>
+            <th style="text-align:right">B %</th>
+            <th style="text-align:right">Diff</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr style="font-weight:600;border-top:1px solid var(--border)">
+              <td style="padding-top:10px">Total / serving</td>
+              <td style="padding-top:10px;text-align:right;font-size:12px">${fmtG(totalA)}</td>
+              <td style="padding-top:10px;text-align:right;font-size:12px">${fmtG(totalB)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      ${nwHtml}`;
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────

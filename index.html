@@ -324,6 +324,7 @@
               <select id="scale-from-ing-unit" style="font-size:12px;padding:5px 8px;border-color:var(--pink-mid)">
                 <option value="g">g</option><option value="kg">kg</option>
                 <option value="oz">oz</option><option value="lb">lb</option>
+                <option value="count">count</option>
               </select>
             </div>
             <button class="btn btn-primary btn-sm" onclick="applyScaleFromIng()" style="font-size:12px;align-self:flex-end">Apply</button>
@@ -1999,32 +2000,56 @@
     const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
     const sel = document.getElementById('scale-from-ing-select');
-    // Only weight-unit ingredients make sense as a base
-    const weightIngs = recipe.ingredients
+    // Include weight-unit and count ingredients
+    const scalableIngs = recipe.ingredients
       .map((ri,idx)=>({ri,idx,ing:state.ingredients.find(x=>String(x.id)===String(ri.ingId))}))
-      .filter(({ri})=>{
-        const u = ri.unit || (state.ingredients.find(x=>String(x.id)===String(ri.ingId))?.unit) || ri.ghostUnit || '';
-        return WEIGHT_UNITS.has(u) && !ri.noAmount;
+      .filter(({ri,ing})=>{
+        const u = ri.unit || ing?.unit || ri.ghostUnit || '';
+        return (WEIGHT_UNITS.has(u) || u === 'count') && !ri.noAmount;
       });
-    if(!weightIngs.length){
-      sel.innerHTML='<option disabled>No weight ingredients found</option>';
+    if(!scalableIngs.length){
+      sel.innerHTML='<option disabled>No scalable ingredients found</option>';
       return;
     }
-    sel.innerHTML = weightIngs.map(({ri,idx,ing})=>{
+    sel.innerHTML = scalableIngs.map(({ri,idx,ing})=>{
       const label = ri.displayName || ing?.name || ri.ghostName || 'Unknown';
       const unit  = ri.unit || ing?.unit || ri.ghostUnit || 'g';
       const scale = recipe.scale || 1;
       const scaledAmt = (ri.amount * scale);
       const display = scaledAmt%1===0 ? scaledAmt.toFixed(0) : (Math.round(scaledAmt*100)/100).toString();
-      return `<option value="${idx}">${escHtml(label)} (${display} ${unit})</option>`;
+      return `<option value="${idx}" data-unit="${unit}">${escHtml(label)} (${display} ${unit})</option>`;
     }).join('');
+    // Set unit dropdown to match the first ingredient's unit
+    syncScaleFromIngUnit();
+    document.getElementById('scale-from-ing-select').addEventListener('change', syncScaleFromIngUnit);
     document.getElementById('scale-from-ing-result').textContent = '';
+  }
+
+  function syncScaleFromIngUnit(){
+    const sel     = document.getElementById('scale-from-ing-select');
+    const unitSel = document.getElementById('scale-from-ing-unit');
+    const selected = sel.options[sel.selectedIndex];
+    if(!selected) return;
+    const ingUnit = selected.dataset.unit || 'g';
+    if(ingUnit === 'count'){
+      unitSel.innerHTML = '<option value="count">count</option>';
+    } else {
+      // Restore weight options if needed
+      if(![...unitSel.options].some(o=>o.value==='g')){
+        unitSel.innerHTML = '<option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option>';
+      }
+      // Remove count option if present
+      [...unitSel.options].forEach(o=>{ if(o.value==='count') o.remove(); });
+      // Default to same unit as ingredient if weight
+      const match = [...unitSel.options].find(o=>o.value===ingUnit);
+      if(match) unitSel.value = ingUnit;
+    }
   }
 
   function applyScaleFromIng(){
     const recipe = state.recipes.find(r=>String(r.id)===String(state.activeRecipeId));
     if(!recipe) return;
-    const idx    = parseInt(document.getElementById('scale-from-ing-select').value);
+    const idx     = parseInt(document.getElementById('scale-from-ing-select').value);
     const haveAmt = parseFloat(document.getElementById('scale-from-ing-amount').value);
     const haveUnit = document.getElementById('scale-from-ing-unit').value;
     if(isNaN(idx) || isNaN(haveAmt) || haveAmt <= 0){
@@ -2032,19 +2057,25 @@
     }
     const ri = recipe.ingredients[idx];
     if(!ri){ showToast('Ingredient not found.'); return; }
-    const ing  = state.ingredients.find(x=>String(x.id)===String(ri.ingId));
+    const ing     = state.ingredients.find(x=>String(x.id)===String(ri.ingId));
     const origUnit = ri.unit || ing?.unit || ri.ghostUnit || 'g';
-    if(!WEIGHT_UNITS.has(origUnit) || !WEIGHT_UNITS.has(haveUnit)){
-      showToast('Both units must be weight units (g, kg, oz, lb).'); return;
+
+    let newScale;
+    if(origUnit === 'count' && haveUnit === 'count'){
+      // Direct ratio — no unit conversion needed
+      if(ri.amount === 0){ showToast('Original amount is zero — cannot scale.'); return; }
+      newScale = haveAmt / ri.amount;
+    } else if(WEIGHT_UNITS.has(origUnit) && WEIGHT_UNITS.has(haveUnit)){
+      const origGrams = toGrams(ri.amount, origUnit);
+      const haveGrams = toGrams(haveAmt, haveUnit);
+      if(origGrams === 0){ showToast('Original amount is zero — cannot scale.'); return; }
+      newScale = haveGrams / origGrams;
+    } else {
+      showToast('Unit mismatch — select a matching unit for this ingredient.'); return;
     }
-    // Convert both to grams for comparison
-    const origGrams = toGrams(ri.amount, origUnit);
-    const haveGrams = toGrams(haveAmt, haveUnit);
-    if(origGrams === 0){ showToast('Original amount is zero — cannot scale.'); return; }
-    const newScale = haveGrams / origGrams;
+
     recipe.scale = Math.round(newScale * 10000) / 10000;
     save(); renderRecipeDetail();
-    // Show result summary
     const resultEl = document.getElementById('scale-from-ing-result');
     if(resultEl) resultEl.textContent = `Scale factor: ×${recipe.scale.toFixed(4).replace(/\.?0+$/, '')}`;
   }

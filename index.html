@@ -2471,6 +2471,12 @@
         const displayUnit=isAsNeeded?'':( ri.unit||(ing?ing.unit:ri.ghostUnit||''));
         const scaledAmount=isAsNeeded?0:ri.amount*scale;
         const displayAmount=isAsNeeded?'as needed':(scaledAmount%1===0?scaledAmount.toFixed(0):(Math.round(scaledAmount*100)/100).toString());
+        const origAmount=isAsNeeded?'as needed':(ri.amount%1===0?ri.amount.toFixed(0):(Math.round(ri.amount*100)/100).toString());
+
+        // Show "orig → scaled" when scale is active, otherwise just the amount
+        const amountHtml = (scale!==1 && !isAsNeeded)
+          ? `<span style="color:#ccc;font-size:11px;margin-right:2px">${origAmount} ${displayUnit}</span><span style="font-size:11px;color:var(--muted);margin-right:2px">→</span><span class="breakdown-pct">${displayAmount} ${displayUnit}</span>`
+          : `<span class="breakdown-pct">${displayAmount} ${displayUnit}</span>`;
         const lid = riLocalId(ri);
         let pctBadge='';
         if(scaledBase && idx!==recipe.bakersBaseIdx && WEIGHT_UNITS.has(displayUnit)){
@@ -2494,7 +2500,7 @@
           return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}cursor:grab" draggable="true"
             ondragstart="onIngDragStart(event,'${lid}','${sectionId||''}')"
             ondragover="onIngDragOver(event,'${lid}')" ondragleave="onIngDragLeave(event)" ondrop="onIngDrop(event,'${lid}','${sectionId||''}')">
-            <span style="display:flex;align-items:center;gap:4px">${drag}${escHtml(label)}${pctBadge}${optTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
+            <span style="display:flex;align-items:center;gap:4px">${drag}${escHtml(label)}${pctBadge}${optTag} ${amountHtml}</span>
             <span style="display:flex;align-items:center;gap:6px">
               ${ri.includeCost!==false?`<span style="color:var(--green-dark);font-weight:500">$${lineCost.toFixed(2)}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>
@@ -2507,7 +2513,7 @@
           return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}cursor:grab" draggable="true"
             ondragstart="onIngDragStart(event,'${lid}','${sectionId||''}')"
             ondragover="onIngDragOver(event,'${lid}')" ondragleave="onIngDragLeave(event)" ondrop="onIngDrop(event,'${lid}','${sectionId||''}')">
-            <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${drag}${escHtml(label)}${pctBadge}${optTag} <span class="breakdown-pct">${displayAmount} ${displayUnit}</span></span>
+            <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${drag}${escHtml(label)}${pctBadge}${optTag} ${amountHtml}</span>
             <span style="display:flex;align-items:center;gap:6px">
               <span class="tag" style="font-size:10px;background:#f0f0ee;color:var(--muted)">no price</span>
               <button class="btn btn-edit" onclick="openEditRecipeIngModal(${idx})">Edit</button>

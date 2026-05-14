@@ -2428,6 +2428,7 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" onclick="openLogBakeModal('${recipe.id}')">Log a bake</button>
         <button class="btn btn-ghost btn-sm" onclick="openCompareModal('${recipe.id}')">Compare</button>
+        <button class="btn btn-ghost btn-sm" onclick="shareRecipe('${recipe.id}')">Share</button>
         <button class="btn btn-edit" onclick="openEditRecipeModal('${recipe.id}')">Edit</button>
         <button class="btn btn-danger" onclick="deleteRecipe('${recipe.id}')">Delete</button>
       </div>`;
@@ -3542,6 +3543,87 @@
         </table>
       </div>
       ${nwHtml}`;
+  }
+
+  // ── Share Recipe ─────────────────────────────────────────────────────
+
+  function shareRecipe(recipeId){
+    const recipe = state.recipes.find(r=>String(r.id)===String(recipeId));
+    if(!recipe) return;
+
+    const lines = [];
+
+    // Title + yield
+    const serving = recipe.servings ? ` (makes ${recipe.servings})` : '';
+    lines.push(`${recipe.name}${serving}`);
+    lines.push('');
+
+    // Ingredients — grouped by section if sections exist
+    lines.push('Ingredients');
+    const hasSections = recipe.sections && recipe.sections.length;
+
+    function formatIngredient(ri){
+      const ing = state.ingredients.find(x=>String(x.id)===String(ri.ingId));
+      const name = ri.displayName || ing?.name || ri.ghostName || 'Unknown';
+      if(ri.noAmount) return `- ${name} (as needed)`;
+      const unit = ri.unit || ing?.unit || ri.ghostUnit || '';
+      const amt  = ri.amount%1===0 ? ri.amount.toFixed(0) : (Math.round(ri.amount*100)/100).toString();
+      const optional = ri.optional ? ' (optional)' : '';
+      const notes    = ri.notes    ? ` — ${ri.notes}` : '';
+      return `- ${amt}${unit ? ' '+unit : ''} ${name}${optional}${notes}`;
+    }
+
+    if(hasSections){
+      // Group ingredients by section
+      const sectionMap = {};
+      (recipe.sections||[]).forEach(s=>{ sectionMap[s.id] = { name: s.name, ings: [] }; });
+      const unsectioned = [];
+      recipe.ingredients.forEach(ri=>{
+        const sec = ri._localId && recipe.sections?.find(s=>s.ingredientIds?.includes(ri._localId));
+        if(sec) sectionMap[sec.id]?.ings.push(ri);
+        else unsectioned.push(ri);
+      });
+
+      if(unsectioned.length) unsectioned.forEach(ri=>lines.push(formatIngredient(ri)));
+      (recipe.sections||[]).forEach(s=>{
+        const grp = sectionMap[s.id];
+        if(!grp || !grp.ings.length) return;
+        lines.push('');
+        lines.push(grp.name);
+        grp.ings.forEach(ri=>lines.push(formatIngredient(ri)));
+      });
+    } else {
+      recipe.ingredients.forEach(ri=>lines.push(formatIngredient(ri)));
+    }
+
+    // Method
+    if(recipe.method && recipe.method.trim()){
+      lines.push('');
+      lines.push('Method');
+      lines.push(recipe.method.trim());
+    }
+
+    // Source URL
+    if(recipe.sourceUrl && recipe.sourceUrl.trim()){
+      lines.push('');
+      lines.push(`Source: ${recipe.sourceUrl.trim()}`);
+    }
+
+    const text = lines.join('\n');
+
+    navigator.clipboard.writeText(text).then(()=>{
+      showToast('Recipe copied to clipboard!');
+    }).catch(()=>{
+      // Fallback for browsers without clipboard API
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Recipe copied to clipboard!');
+    });
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────

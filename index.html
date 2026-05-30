@@ -121,6 +121,7 @@
     .link-option:hover { background:var(--pink-light); }
     .link-option input[type=radio] { accent-color:var(--pink-dark); width:15px; height:15px; flex-shrink:0; cursor:pointer; }
     .link-option-name { font-size:13px; font-weight:500; }
+    .link-option-store { font-weight:400; color:var(--muted); }
     .link-option-detail { font-size:11px; color:var(--muted); }
     /* Vault screens */
     .tag-filter-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
@@ -2802,8 +2803,8 @@
       <label class="link-option">
         <input type="radio" name="ri-link-pick" value="${p.id}" ${String(currentIngId)===String(p.id)?'checked':''}>
         <div>
-          <div class="link-option-name">${escHtml(p.name)}</div>
-          <div class="link-option-detail">${normalisedCostStr(p)}${p.store?' &middot; '+escHtml(p.store):''}</div>
+          <div class="link-option-name">${escHtml(p.name)}${p.store?'<span class="link-option-store"> &middot; '+escHtml(p.store)+'</span>':''}</div>
+          <div class="link-option-detail">${normalisedCostStr(p)}</div>
         </div>
       </label>`).join('');
     // Auto-select best ghost match if nothing is checked

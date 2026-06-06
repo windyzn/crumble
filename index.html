@@ -1337,14 +1337,24 @@
   let state = JSON.parse(localStorage.getItem('bakebudget_v1')||'null')||{ingredients:[],recipes:[],activeRecipeId:null};
   loadBakeLog(); // load bakeLog from its own localStorage key
   // ── Persistence: localStorage + async Supabase dual-write ────────────
+  let _pushDebounceTimer = null;
+  let _pushChain = Promise.resolve();
   function save() {
     localStorage.setItem('bakebudget_v1', JSON.stringify(state));
     const meta = getVaultMeta();
     if (meta?.vaultKey && meta?.verified) {
-      pushToSupabase(meta.vaultKey).catch(err => {
-        console.error('Supabase sync error:', err);
-        showToast('⚠️ Local save succeeded but cloud sync failed.', 5000);
-      });
+      // Debounce + serialize: coalesce rapid saves and never run two pushes concurrently.
+      // Without this, concurrent DELETE+INSERT pairs can interleave and duplicate rows.
+      clearTimeout(_pushDebounceTimer);
+      _pushDebounceTimer = setTimeout(() => {
+        const key = meta.vaultKey;
+        _pushChain = _pushChain
+          .then(() => pushToSupabase(key))
+          .catch(err => {
+            console.error('Supabase sync error:', err);
+            showToast('⚠️ Local save succeeded but cloud sync failed.', 5000);
+          });
+      }, 300);
     }
   }
 

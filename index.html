@@ -1090,7 +1090,7 @@
       };
     });
 
-    save(); // persist to localStorage too
+    localStorage.setItem('bakebudget_v1', JSON.stringify(state)); // persist locally; no Supabase push needed (we just pulled)
   }
 
   // ── Vault UI helpers ───────────────────────────────────────────────────

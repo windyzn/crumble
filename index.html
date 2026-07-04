@@ -2003,20 +2003,26 @@
     return amount*(fromBase/toBase);
   }
 
+  // Cost of a single recipe ingredient line, handling "as needed" and
+  // cross-family (weight recipe amount vs count-priced pantry item) cases.
+  // Shared by riRow, calcRecipeCost and calcSectionCost so the row display
+  // and the totals derived from it can never drift apart.
+  function calcLineCost(ri, ing, scale){
+    if(!ing || ri.includeCost===false) return 0;
+    if(ri.noAmount || ri.unit==='as needed') return 0;
+    const unit=ri.unit||ing.unit;
+    const amount=ri.amount*(scale||1);
+    if(UNIT_FAMILY[unit]==='weight' && ing.unit==='count' && ing.countToGrams){
+      const grams=convertAmount(amount, unit, 'g');
+      return ing.costPerUnit*(grams/ing.countToGrams);
+    }
+    return ing.costPerUnit*convertAmount(amount, unit, ing.unit);
+  }
+
   function calcRecipeCost(recipe){
     return recipe.ingredients.reduce((sum,ri)=>{
-      if(ri.includeCost===false) return sum;
       const ing=state.ingredients.find(x=>String(x.id)===String(ri.ingId));
-      if(!ing) return sum;
-      const riUnit=ri.unit||ing.unit;
-      // Cross-family conversion: recipe uses weight, pantry uses count (e.g. eggs in g vs count)
-      if(UNIT_FAMILY[riUnit]==='weight' && ing.unit==='count' && ing.countToGrams){
-        const grams=convertAmount(ri.amount, riUnit, 'g');
-        const countUsed=grams/ing.countToGrams;
-        return sum+ing.costPerUnit*countUsed;
-      }
-      const converted=convertAmount(ri.amount,riUnit,ing.unit);
-      return sum+ing.costPerUnit*converted;
+      return sum+calcLineCost(ri, ing, 1);
     },0);
   }
 
@@ -2221,11 +2227,9 @@
   function calcSectionCost(recipe, section, scale){
     return (section.ingredientIds||[]).reduce((sum, iid)=>{
       const ri = recipe.ingredients.find(x => String(x.ingId||x._localId) === String(iid) || String(x._localId) === String(iid));
-      if(!ri || ri.includeCost===false) return sum;
+      if(!ri) return sum;
       const ing = state.ingredients.find(x=>String(x.id)===String(ri.ingId));
-      if(!ing) return sum;
-      const unit = ri.unit||ing.unit;
-      return sum + ing.costPerUnit * convertAmount((ri.amount*(scale||1)), unit, ing.unit);
+      return sum + calcLineCost(ri, ing, scale);
     }, 0);
   }
 
@@ -2499,14 +2503,7 @@
         }
         const drag = `<span class="drag-handle" title="Drag to reorder or into a section">⠿</span>`;
         if(ing){
-          const converted=convertAmount(scaledAmount,displayUnit,ing.unit);
-          const lineCost=ri.includeCost===false?0:(()=>{
-            if(UNIT_FAMILY[displayUnit]==='weight' && ing.unit==='count' && ing.countToGrams){
-              const grams=convertAmount(scaledAmount,displayUnit,'g');
-              return ing.costPerUnit*(grams/ing.countToGrams);
-            }
-            return ing.costPerUnit*converted;
-          })();
+          const lineCost=calcLineCost(ri, ing, scale);
           const label=(ri.displayName||ing.name)+(ri.notes?`, ${ri.notes}`:'');
           const optTag=ri.optional?`<span class="tag" style="background:#f5f5f0;color:var(--muted);font-size:10px;margin-left:4px">optional</span>`:'';
           return `<div class="breakdown-row" style="${ri.includeCost===false?'opacity:0.6':''}cursor:grab" draggable="true"

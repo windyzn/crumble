@@ -282,6 +282,9 @@
       <button class="back-btn" onclick="closeRecipeDetail()">&#8592; All recipes</button>
       <div class="card">
         <div id="recipe-detail-header" class="card-header"></div>
+        <div class="section-title">Bake history</div>
+        <div id="recipe-bake-history"></div>
+        <div class="divider"></div>
         <div class="section-title">Cost summary</div>
         <div class="cost-cards" id="cost-summary"></div>
         <div class="section-row" style="margin-top:10px">
@@ -1574,7 +1577,7 @@
       `${total} ingredient${total!==1?'s':''} parsed. Edit any fields, uncheck any to skip.`;
     const unitOpts=['g','kg','oz','lb','ml','L','tsp','tbsp','cup','count','as needed'].map(u=>`<option value="${u}">${u}</option>`).join('');
     const sortedPantry=[...state.ingredients].sort((a,b)=>a.name.localeCompare(b.name));
-    const pantryOpts=sortedPantry.map(p=>`<option value="${p.id}">${escHtml(p.name)} (${p.unit})</option>`).join('');
+    const pantryOpts=sortedPantry.map(p=>`<option value="${p.id}">${escHtml(p.name)} (${p.unit})${p.store?' · '+escHtml(p.store):''}</option>`).join('');
     document.getElementById('review-list').innerHTML=parsed.map((p,i)=>{
       const match=findPantryMatch(p.name);
       const unitSel=unitOpts.replace(`value="${p.unit}"`,`value="${p.unit}" selected`);
@@ -2456,6 +2459,17 @@
       <div class="cost-card"><div class="label">Total cost${scale!==1?' (scaled)':''}</div><div class="value">$${totalCost.toFixed(2)}</div></div>
       <div class="cost-card"><div class="label">Per serving</div><div class="value">$${perServing.toFixed(2)}</div><div class="sub">${scaledServings} serving${scaledServings!==1?'s':''}</div></div>`;
 
+    const bakeHistory=(state.bakeLog||[]).filter(e=>String(e.recipeId)===String(recipe.id))
+      .sort((a,b)=>b.bakedOn.localeCompare(a.bakedOn)||b.createdAt.localeCompare(a.createdAt));
+    document.getElementById('recipe-bake-history').innerHTML = bakeHistory.length
+      ? bakeHistory.map(e=>`<div class="bake-entry">
+          <div class="bake-entry-left">
+            <div class="bake-entry-date">${formatBakeDate(e.bakedOn)}</div>
+            ${e.notes?`<div class="bake-entry-notes">${escHtml(e.notes)}</div>`:''}
+          </div>
+        </div>`).join('')
+      : '<div class="empty" style="padding:0.75rem 0">No bakes logged yet — hit "Log a bake" above once you make this.</div>';
+
     // baker's % button state
     const bpBtn=document.getElementById('bakers-pct-btn');
     const bpLabel=document.getElementById('bakers-pct-base-label');
@@ -2985,6 +2999,7 @@
     // Re-render if on bake log tab
     const logPanel = document.getElementById('bakelog');
     if(logPanel.classList.contains('active')) renderBakeLog();
+    if(String(state.activeRecipeId)===String(recipeId)) renderRecipeDetail();
   }
 
   function openEditBakeModal(entryId){

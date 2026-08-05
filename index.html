@@ -2467,6 +2467,7 @@
             <div class="bake-entry-date">${formatBakeDate(e.bakedOn)}</div>
             ${e.notes?`<div class="bake-entry-notes">${escHtml(e.notes)}</div>`:''}
           </div>
+          <button class="btn btn-edit" style="flex-shrink:0" onclick="openEditBakeModal('${e.id}')">Edit</button>
         </div>`).join('')
       : '<div class="empty" style="padding:0.75rem 0">No bakes logged yet — hit "Log a bake" above once you make this.</div>';
 
@@ -3022,8 +3023,11 @@
     entry.notes   = notes;
     saveBakeLog();
     closeModal('edit-bake-modal');
-    renderBakeLog();
     showToast('Entry updated.');
+    // Re-render wherever this entry is currently visible
+    const logPanel = document.getElementById('bakelog');
+    if(logPanel.classList.contains('active')) renderBakeLog();
+    if(String(state.activeRecipeId)===String(entry.recipeId)) renderRecipeDetail();
     // Push to Supabase
     const meta = getVaultMeta();
     if(meta?.vaultKey && meta?.verified){
@@ -3037,11 +3041,14 @@
   async function deleteLogBake(){
     const id = document.getElementById('edit-bake-id').value;
     if(!confirm('Delete this bake entry?')) return;
+    const entry = (state.bakeLog||[]).find(e=>e.id===id);
     state.bakeLog = (state.bakeLog||[]).filter(e=>e.id!==id);
     saveBakeLog();
     closeModal('edit-bake-modal');
-    renderBakeLog();
     showToast('Entry deleted.');
+    const logPanel = document.getElementById('bakelog');
+    if(logPanel.classList.contains('active')) renderBakeLog();
+    if(entry && String(state.activeRecipeId)===String(entry.recipeId)) renderRecipeDetail();
     const meta = getVaultMeta();
     if(meta?.vaultKey && meta?.verified){
       try {

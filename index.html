@@ -1585,7 +1585,7 @@
       `${total} ingredient${total!==1?'s':''} parsed. Edit any fields, uncheck any to skip.`;
     const unitOpts=['g','kg','oz','lb','ml','L','tsp','tbsp','cup','count','as needed'].map(u=>`<option value="${u}">${u}</option>`).join('');
     const sortedPantry=[...state.ingredients].sort((a,b)=>a.name.localeCompare(b.name));
-    const pantryOpts=sortedPantry.map(p=>`<option value="${p.id}">${escHtml(p.name)} (${p.unit})${p.store?' · '+escHtml(p.store):''}</option>`).join('');
+    const pantryOpts=sortedPantry.map(p=>`<option value="${p.id}">${escHtml(p.name)}${p.store?' · '+escHtml(p.store):''}</option>`).join('');
     document.getElementById('review-list').innerHTML=parsed.map((p,i)=>{
       const match=findPantryMatch(p.name);
       const unitSel=unitOpts.replace(`value="${p.unit}"`,`value="${p.unit}" selected`);

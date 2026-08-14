@@ -163,6 +163,8 @@
     .bake-entry:last-child { border-bottom:none; }
     .bake-entry-left { flex:1; min-width:0; }
     .bake-entry-recipe { font-weight:500; font-size:14px; }
+    .bakelog-recipe-link { cursor:pointer; }
+    .bakelog-recipe-link:hover { text-decoration:underline; }
     .bake-entry-date { font-size:12px; color:var(--muted); margin-top:2px; }
     .bake-entry-notes { font-size:12px; color:var(--text); margin-top:5px; line-height:1.5; opacity:0.8; }
     .bake-group-header { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--pink-light); border-radius:9px; margin-bottom:6px; margin-top:14px; cursor:pointer; }
@@ -1377,6 +1379,12 @@
     document.getElementById(tabId).classList.add('active');
     if(tabId==='recipes') renderRecipeList();
     if(tabId==='bakelog') renderBakeLog();
+  }
+
+  function goToRecipeFromBakeLog(recipeId){
+    if(!state.recipes.some(r=>String(r.id)===String(recipeId))) return; // recipe was deleted
+    switchTab('recipes', document.querySelector('.tabs .tab'));
+    openRecipeDetail(recipeId);
   }
 
   function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -3292,7 +3300,7 @@
       const name = recipe ? recipe.name : '<em style="color:var(--muted)">Deleted recipe</em>';
       return `<div class="bake-entry">
         <div class="bake-entry-left">
-          <div class="bake-entry-recipe">${recipe ? escHtml(name) : name}</div>
+          <div class="bake-entry-recipe">${recipe ? `<span class="bakelog-recipe-link" onclick="goToRecipeFromBakeLog('${e.recipeId}')">${escHtml(name)}</span>` : name}</div>
           <div class="bake-entry-date">${formatBakeDate(e.bakedOn)}</div>
           ${e.notes?`<div class="bake-entry-notes">${escHtml(e.notes)}</div>`:''}
         </div>
@@ -3324,7 +3332,7 @@
         </div>`).join('');
       return `<div class="bake-group" id="bakegroup-${rid}">
         <div class="bake-group-header" onclick="toggleBakeGroup('${rid}')">
-          <span class="bake-group-name">${name}</span>
+          <span class="bake-group-name${recipe?' bakelog-recipe-link':''}"${recipe?` onclick="event.stopPropagation();goToRecipeFromBakeLog('${rid}')"`:''}>${name}</span>
           <span class="bake-group-meta">${count}× &middot; last ${lastDate} <span style="color:var(--pink-mid);margin-left:4px" id="bakegroup-arrow-${rid}">▾</span></span>
         </div>
         <div class="bake-group-entries" id="bakegroup-entries-${rid}">${entriesHtml}</div>

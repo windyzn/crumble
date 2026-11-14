@@ -13,27 +13,29 @@
     :root {
       --pink:#F4C0D1; --pink-light:#FBEAF0; --pink-mid:#ED93B1; --pink-dark:#993556;
       --green:#C0DD97; --green-light:#EAF3DE; --green-mid:#97C459; --green-dark:#3B6D11;
-      --cream:#fdf8f2; --white:#ffffff; --text:#2C2C2A; --muted:#888780;
+      --cream:#fdf8f2; --white:#ffffff; --text:#2C2C2A; --muted:rgba(44,44,42,0.72);
       --border:rgba(0,0,0,0.1); --border-strong:rgba(0,0,0,0.18); --shadow:0 2px 12px rgba(0,0,0,0.06);
     }
-    body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--text); min-height:100vh; }
+    body { font-family:'DM Sans',system-ui,sans-serif; background:var(--cream); color:var(--text); min-height:100vh; }
+    .ing-cost, .ing-detail, .recipe-card-cost, .cost-card .value, .markup-card .mk-val, .breakdown-row, .bake-stat-value, .compare-table, .section-header-cost, #pricing-output { font-variant-numeric:tabular-nums; }
     .app { max-width:860px; margin:0 auto; padding:1.5rem 1rem 4rem; }
     .header { text-align:center; padding:2.5rem 0 2rem; }
     .header h1 { font-family:'Poppins',sans-serif; font-size:2.2rem; font-weight:700; color:var(--text); }
     .header p { color:var(--muted); font-size:14px; margin-top:6px; }
     .petal-bar { text-align:center; font-size:18px; opacity:0.4; margin-bottom:0.5rem; letter-spacing:6px; }
-    .tabs { display:flex; gap:4px; margin-bottom:1.5rem; border-bottom:1.5px solid var(--border); }
-    .tab { padding:9px 20px; font-size:14px; font-family:'DM Sans',sans-serif; border:none; background:none; cursor:pointer; color:var(--muted); border-bottom:2.5px solid transparent; margin-bottom:-1.5px; font-weight:400; transition:color 0.15s; }
+    .tabs { display:flex; gap:4px; margin-bottom:2.5rem; }
+    .tab { padding:9px 20px; font-size:14px; font-family:'DM Sans',system-ui,sans-serif; border:none; background:none; cursor:pointer; color:var(--muted); border-bottom:2.5px solid transparent; font-weight:400; transition:color 0.15s; }
     .tab.active { color:var(--pink-dark); border-bottom-color:var(--pink-mid); font-weight:500; }
     .tab:hover:not(.active) { color:var(--text); }
     .panel { display:none; } .panel.active { display:block; }
-    .card { background:var(--white); border:0.5px solid var(--border-strong); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1rem; box-shadow:var(--shadow); }
+    .card { margin-bottom:64px; }
     .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.1rem; }
-    .card-title { font-family:'Poppins',sans-serif; font-size:1.05rem; font-weight:700; }
-    .btn { padding:8px 16px; font-size:13px; font-family:'DM Sans',sans-serif; border-radius:9px; cursor:pointer; transition:all 0.15s; font-weight:500; }
-    .btn-primary { background:var(--pink-mid); border:none; color:#fff; }
-    .btn-primary:hover { background:var(--pink-dark); }
-    .btn-green { background:var(--green-mid); border:none; color:var(--green-dark); }
+    .card-meta { font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .card-title { font-family:'Poppins',sans-serif; font-size:1.4rem; font-weight:700; }
+    .btn { padding:8px 16px; font-size:13px; font-family:'DM Sans',system-ui,sans-serif; border-radius:9px; cursor:pointer; transition:all 0.15s; font-weight:500; }
+    .btn-primary { background:var(--pink-dark); border:none; color:#fff; }
+    .btn-primary:hover { filter:brightness(0.88); }
+    .btn-green { background:var(--green-light); border:none; color:var(--green-dark); }
     .btn-green:hover { background:var(--green); }
     .btn-ghost { background:none; border:0.5px solid var(--border-strong); color:var(--muted); }
     .btn-ghost:hover { border-color:var(--muted); color:var(--text); }
@@ -46,16 +48,16 @@
     .form-group { display:flex; flex-direction:column; gap:5px; }
     .form-group label { font-size:12px; color:var(--muted); font-weight:500; }
     .form-group label em { font-weight:300; font-style:italic; }
-    input, select, textarea { padding:8px 11px; border:0.5px solid var(--border-strong); border-radius:9px; font-family:'DM Sans',sans-serif; font-size:13px; color:var(--text); background:#fff; outline:none; transition:border-color 0.15s; }
-    input:focus, select:focus, textarea:focus { border-color:var(--pink-mid); box-shadow:0 0 0 3px rgba(237,147,177,0.15); }
+    input, select, textarea { padding:8px 11px; border:0.5px solid var(--border-strong); border-radius:9px; font-family:'DM Sans',system-ui,sans-serif; font-size:13px; color:var(--text); background:#fff; outline:none; transition:border-color 0.15s; }
+    input:focus, select:focus, textarea:focus { border-color:var(--pink-mid); outline:2px solid var(--pink-mid); outline-offset:0; }
+    button:focus-visible { outline:2px solid var(--pink-mid); outline-offset:2px; }
     input[type=number] { width:100px; }
     input::placeholder, textarea::placeholder { color:#bbb; }
     textarea { resize:vertical; width:100%; min-height:80px; line-height:1.5; }
     .tag { display:inline-block; padding:3px 11px; border-radius:20px; font-size:11px; font-weight:500; }
     .tag-pink { background:var(--pink-light); color:var(--pink-dark); }
     .tag-green { background:var(--green-light); color:var(--green-dark); }
-    .ingredient-row { display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:0.5px solid var(--border); flex-wrap:wrap; }
-    .ingredient-row:last-child { border-bottom:none; }
+    .ingredient-row { display:flex; align-items:center; gap:12px; padding:12px 0; flex-wrap:wrap; }
     .ingredient-row.archived { opacity:0.6; }
     .pantry-archived-toggle { background:none; border:none; color:var(--muted); font-size:12px; padding:10px 0 0; cursor:pointer; text-decoration:underline; }
     .ing-name { font-weight:500; font-size:14px; min-width:120px; }
@@ -72,7 +74,7 @@
     .recipe-pill:hover { background:var(--pink); }
     .recipe-pill-name { font-family:'Poppins',sans-serif; font-size:14px; font-weight:700; }
     .recipe-pill-meta { font-size:12px; color:var(--muted); margin-top:2px; }
-    .back-btn { background:none; border:none; font-size:13px; color:var(--muted); cursor:pointer; padding:0; margin-bottom:12px; font-family:'DM Sans',sans-serif; }
+    .back-btn { background:none; border:none; font-size:13px; color:var(--muted); cursor:pointer; padding:0; margin-bottom:12px; font-family:'DM Sans',system-ui,sans-serif; }
     .back-btn:hover { color:var(--text); }
     .cost-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:10px; }
     .cost-card { background:var(--green-light); border-radius:12px; padding:1rem; text-align:center; }
@@ -84,18 +86,17 @@
     .markup-card .mk-label { font-size:11px; color:var(--green-dark); font-weight:500; text-transform:uppercase; letter-spacing:0.4px; }
     .markup-card .mk-val { font-size:1.2rem; font-family:'Poppins',sans-serif; color:var(--green-dark); margin-top:4px; font-weight:700; }
     .markup-card .mk-note { font-size:10px; color:var(--muted); margin-top:3px; line-height:1.4; }
-    .breakdown-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:7px 0; border-bottom:0.5px solid var(--border); }
-    .breakdown-row:last-child { border-bottom:none; }
+    .breakdown-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:7px 0; }
     .breakdown-pct { font-size:11px; color:var(--muted); margin-left:6px; }
     .section-title { font-size:11px; color:var(--muted); font-weight:500; letter-spacing:0.5px; margin-bottom:8px; text-transform:uppercase; }
-    .divider { height:0.5px; background:var(--border); margin:14px 0; }
+    .divider { height:48px; }
     .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.25); z-index:100; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
     .modal-bg.open { display:flex; }
     .modal { background:var(--white); border-radius:18px; padding:1.75rem; width:min(580px,92vw); max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,0.14); }
     .modal-title { font-family:'Poppins',sans-serif; font-size:1.1rem; font-weight:700; margin-bottom:0.5rem; }
     .modal-subtitle { font-size:12px; color:var(--muted); margin-bottom:14px; }
     .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:1rem; }
-    .missing-ing-block { border:0.5px solid var(--border-strong); border-radius:12px; padding:14px; margin-bottom:12px; }
+    .missing-ing-block { margin-bottom:24px; }
     .missing-ing-name { font-weight:500; font-size:14px; margin-bottom:4px; }
     .missing-ing-parsed { font-size:12px; color:var(--muted); margin-bottom:10px; }
     .review-item { display:flex; align-items:flex-start; gap:10px; padding:9px 10px; border-radius:9px; margin-bottom:4px; transition:background 0.1s; }
@@ -107,16 +108,16 @@
     .review-item-detail { font-size:11px; color:var(--muted); margin-top:1px; }
     .btn-pencil { background:none; border:none; cursor:pointer; font-size:15px; color:var(--muted); padding:2px 4px; border-radius:5px; line-height:1; }
     .btn-pencil:hover { color:var(--pink-dark); background:var(--pink-light); }
-    .pct-badge { font-size:10px; color:var(--green-dark); background:var(--green-light); border-radius:6px; padding:1px 5px; margin-left:4px; font-weight:500; }
-    .btn-bakers-active { background:var(--green-mid)!important; color:var(--green-dark)!important; border-color:var(--green-mid)!important; font-weight:500!important; }
+    .pct-badge { font-size:11px; color:var(--muted); margin-left:6px; }
+    .btn-bakers-active { background:var(--green-light)!important; color:var(--green-dark)!important; border-color:var(--green-mid)!important; font-weight:500!important; }
     .instructions-display { font-size:13px; line-height:1.8; color:var(--text); }
     .instructions-empty { font-size:13px; color:var(--muted); font-style:italic; }
     .toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:#2C2C2A; color:#fff; font-size:13px; padding:12px 18px; border-radius:12px; max-width:min(480px,90vw); text-align:center; line-height:1.5; z-index:200; opacity:0; transition:opacity 0.2s; pointer-events:none; }
     .toast.show { opacity:1; }
     .section-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
     .section-row .section-title { margin-bottom:0; }
-    .modal-tabs { display:flex; gap:0; margin-bottom:1.1rem; border-bottom:1.5px solid var(--border); }
-    .modal-tab { padding:7px 16px; font-size:13px; font-family:'DM Sans',sans-serif; border:none; background:none; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1.5px; font-weight:400; transition:color 0.15s; }
+    .modal-tabs { display:flex; gap:0; margin-bottom:1.1rem; }
+    .modal-tab { padding:7px 16px; font-size:13px; font-family:'DM Sans',system-ui,sans-serif; border:none; background:none; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; font-weight:400; transition:color 0.15s; }
     .modal-tab.active { color:var(--pink-dark); border-bottom-color:var(--pink-mid); font-weight:500; }
     .modal-tab-panel { display:none; } .modal-tab-panel.active { display:block; }
     .link-option { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:9px; cursor:pointer; transition:background 0.12s; }
@@ -126,17 +127,17 @@
     .link-option-store { font-weight:400; color:var(--muted); }
     .link-option-detail { font-size:11px; color:var(--muted); }
     /* Vault screens */
-    .tag-filter-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-    .tag-filter-btn { padding:4px 12px; border-radius:7px; font-size:12px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; border:0.5px solid var(--border-strong); background:none; color:var(--muted); transition:all 0.15s; }
-    .tag-filter-btn:hover { border-color:var(--pink-mid); color:var(--pink-dark); }
-    .tag-filter-btn.active { background:var(--pink-light); border-color:var(--pink-mid); color:var(--pink-dark); }
+    .tag-filter-bar { display:flex; gap:4px 16px; flex-wrap:wrap; margin-bottom:16px; }
+    .tag-filter-btn { padding:2px 0; font-size:13px; font-family:'DM Sans',system-ui,sans-serif; font-weight:400; cursor:pointer; border:none; background:none; color:var(--muted); transition:color 0.15s; }
+    .tag-filter-btn:hover { color:var(--text); }
+    .tag-filter-btn.active { color:var(--pink-dark); font-weight:500; text-decoration:underline; text-underline-offset:4px; }
     .tag-context-menu { position:fixed; background:var(--white); border:0.5px solid var(--border-strong); border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.12); z-index:500; min-width:140px; overflow:hidden; }
-    .tag-context-item { padding:9px 14px; font-size:13px; font-family:'DM Sans',sans-serif; cursor:pointer; transition:background 0.1s; }
+    .tag-context-item { padding:9px 14px; font-size:13px; font-family:'DM Sans',system-ui,sans-serif; cursor:pointer; transition:background 0.1s; }
     .tag-context-item:hover { background:var(--pink-light); color:var(--pink-dark); }
     .tag-context-item.danger:hover { background:#FCEBEB; color:#A32D2D; }
     .recipe-tag { display:inline-block; padding:2px 8px; border-radius:5px; font-size:10px; font-weight:500; background:var(--pink-light); color:var(--pink-dark); margin-right:4px; }
-    .recipe-group-label { font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; padding:8px 0 4px; margin-top:18px; border-top:0.5px solid var(--border); }
-    .recipe-group-label:first-child { border-top:none; margin-top:0; }
+    .recipe-group-label { font-size:11px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; padding:8px 0 4px; margin-top:28px; }
+    .recipe-group-label:first-child { margin-top:0; }
     .tag-input-wrap { position:relative; }
     .tag-suggestions { position:absolute; top:100%; left:0; right:0; background:var(--white); border:0.5px solid var(--border-strong); border-radius:9px; box-shadow:var(--shadow); z-index:50; margin-top:3px; overflow:hidden; }
     .tag-suggestion-item { padding:8px 12px; font-size:13px; cursor:pointer; transition:background 0.1s; }
@@ -153,16 +154,15 @@
     .vault-card p { font-size:13px; color:var(--muted); margin-bottom:1.4rem; line-height:1.6; }
     .vault-key-display { font-family:monospace; font-size:1.05rem; background:var(--pink-light); color:var(--pink-dark); border-radius:10px; padding:10px 14px; letter-spacing:0.5px; word-break:break-all; }
     .vault-error { font-size:12px; color:#A32D2D; margin-top:5px; min-height:16px; }
-    .vault-panel { background:var(--cream); border:0.5px solid var(--border-strong); border-radius:12px; padding:14px 16px; margin-top:1rem; }
+    .vault-panel { margin-top:1.5rem; }
     .vault-panel-title { font-size:12px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
-    .vault-header-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:7px; font-size:12px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+    .vault-header-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:7px; font-size:12px; font-family:'DM Sans',system-ui,sans-serif; font-weight:500; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
     .vault-header-pill.no-vault { background:none; border:0.5px solid var(--pink); color:var(--pink-dark); }
     .vault-header-pill.no-vault:hover { background:var(--pink-light); }
     .vault-header-pill.has-vault { background:none; border:0.5px solid var(--green-mid); color:var(--green-dark); }
     .vault-header-pill.has-vault:hover { background:var(--green-light); }
     /* Bake Log */
-    .bake-entry { display:flex; justify-content:space-between; align-items:flex-start; padding:11px 0; border-bottom:0.5px solid var(--border); gap:10px; }
-    .bake-entry:last-child { border-bottom:none; }
+    .bake-entry { display:flex; justify-content:space-between; align-items:flex-start; padding:12px 0; gap:10px; }
     .bake-entry-left { flex:1; min-width:0; }
     .bake-entry-recipe { font-weight:500; font-size:14px; }
     .bakelog-recipe-link { cursor:pointer; }
@@ -184,21 +184,19 @@
     .bake-bar-track { background:var(--border); border-radius:4px; height:8px; overflow:hidden; }
     .bake-bar-fill { background:var(--pink-mid); height:100%; border-radius:4px; transition:width 0.4s ease; }
     /* Compare modal */
-    .compare-pick-item { padding:10px 14px; cursor:pointer; border-bottom:0.5px solid var(--border); font-size:13px; display:flex; justify-content:space-between; align-items:center; }
-    .compare-pick-item:last-child { border-bottom:none; }
+    .compare-pick-item { padding:10px 14px; cursor:pointer; border-radius:9px; font-size:13px; display:flex; justify-content:space-between; align-items:center; }
     .compare-pick-item:hover { background:var(--pink-light); }
-    .compare-pick-tag { font-size:11px; color:var(--muted); background:var(--cream); border-radius:6px; padding:2px 7px; }
+    .compare-pick-tag { font-size:11px; color:var(--muted); }
     .compare-table { width:100%; border-collapse:collapse; font-size:13px; }
     .compare-table th { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--border); text-align:right; }
     .compare-table th:first-child { text-align:left; }
-    .compare-table td { padding:8px 8px; border-bottom:0.5px solid var(--border); vertical-align:middle; text-align:right; }
+    .compare-table td { padding:8px 8px; vertical-align:middle; text-align:right; }
     .compare-table td:first-child { text-align:left; font-weight:500; }
-    .compare-table tr:last-child td { border-bottom:none; }
     .compare-diff-pos { color:#2e7d32; font-weight:600; }
     .compare-diff-neg { color:#a32d2d; font-weight:600; }
     .compare-diff-zero { color:var(--muted); }
-    .compare-section-header { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); font-weight:500; padding:12px 0 6px; border-bottom:1px solid var(--border); margin-bottom:2px; }
-    .compare-nonweight { margin-top:18px; padding-top:14px; border-top:0.5px solid var(--border); }
+    .compare-section-header { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); font-weight:500; padding:20px 0 6px; }
+    .compare-nonweight { margin-top:32px; }
     .compare-nonweight-title { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; font-weight:500; }
     .compare-bar-wrap { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
     .compare-bar-track { width:60px; background:var(--border); border-radius:3px; height:6px; overflow:hidden; flex-shrink:0; }
@@ -258,7 +256,7 @@
     <div class="card">
       <div class="card-header">
         <span class="card-title">My pantry</span>
-        <span id="pantry-count" class="tag tag-pink">0 items</span>
+        <span id="pantry-count" class="card-meta">0 items</span>
       </div>
       <div style="margin-bottom:12px">
         <input type="text" id="pantry-search" placeholder="Search ingredients…" style="width:100%" oninput="renderPantry()">
@@ -371,7 +369,7 @@
         </div>
         <div id="instructions-display"></div>
         <div id="instructions-edit-area" style="display:none">
-          <textarea id="instructions-input" placeholder="Write your method here — steps, tips, temperatures, timings...&#10;&#10;Supports markdown: **bold**, *italic*, `code`, # Heading, - list"></textarea>
+          <textarea id="instructions-input" style="min-height:260px" placeholder="Write your method here — steps, tips, temperatures, timings...&#10;&#10;Supports markdown: **bold**, *italic*, `code`, # Heading, - list"></textarea>
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
             <button class="btn btn-ghost btn-sm" onclick="cancelInstructionsEdit()">Cancel</button>
             <button class="btn btn-primary btn-sm" onclick="saveInstructions()">Save</button>
@@ -451,7 +449,7 @@
         Comparing <strong id="compare-recipe-a-name"></strong> with:
       </div>
       <input type="text" id="compare-search" placeholder="Search recipes…" style="width:100%;margin-bottom:10px" oninput="filterCompareList()">
-      <div id="compare-recipe-list" style="max-height:280px;overflow-y:auto;border:0.5px solid var(--border);border-radius:10px"></div>
+      <div id="compare-recipe-list" style="max-height:280px;overflow-y:auto"></div>
     </div>
     <div id="compare-result-screen" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -715,7 +713,7 @@
     <div class="modal-title">Review parsed ingredients</div>
     <p class="modal-subtitle" id="review-subtitle"></p>
     <div id="review-list" style="max-height:340px;overflow-y:auto;margin-bottom:4px"></div>
-    <div style="display:flex;gap:12px;margin-bottom:4px;padding-top:8px;border-top:0.5px solid var(--border)">
+    <div style="display:flex;gap:12px;margin-bottom:4px;margin-top:12px">
       <button class="btn btn-ghost btn-sm" onclick="reviewSelectAll(true)">Select all</button>
       <button class="btn btn-ghost btn-sm" onclick="reviewSelectAll(false)">Deselect all</button>
     </div>
@@ -831,7 +829,7 @@
     <div class="form-group" style="margin-bottom:14px">
       <label style="display:flex;justify-content:space-between;align-items:center">
         Vault key
-        <button onclick="refreshVaultKeySuggestion()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',sans-serif;padding:0">↻ Suggest another</button>
+        <button onclick="refreshVaultKeySuggestion()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',system-ui,sans-serif;padding:0">↻ Suggest another</button>
       </label>
       <input type="text" id="setup-vault-key" placeholder="e.g. butter-meets-flour"
         style="width:100%;font-family:monospace;font-size:0.95rem;letter-spacing:0.3px"
@@ -854,8 +852,8 @@
     </div>
     <button class="btn btn-primary" style="width:100%;padding:11px" onclick="submitVaultSetup()">Set up my vault →</button>
     <div style="text-align:center;margin-top:12px;display:flex;flex-direction:column;gap:8px">
-      <button onclick="switchToVerifyScreen()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500">Already have a vault key? Load it here →</button>
-      <button onclick="skipVaultSetup()" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">Skip for now — use local storage only</button>
+      <button onclick="switchToVerifyScreen()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',system-ui,sans-serif;font-weight:500">Already have a vault key? Load it here →</button>
+      <button onclick="skipVaultSetup()" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',system-ui,sans-serif">Skip for now — use local storage only</button>
     </div>
   </div>
 </div>
@@ -881,8 +879,8 @@
     </div>
     <button class="btn btn-primary" style="width:100%;padding:11px" onclick="submitVaultVerify()">Load my recipes →</button>
     <div style="text-align:center;margin-top:12px;display:flex;flex-direction:column;gap:8px">
-      <button onclick="switchToSetupScreen()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500">← New to Crumble? Create a vault instead</button>
-      <button onclick="skipVaultVerify()" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">Use this device without syncing</button>
+      <button onclick="switchToSetupScreen()" style="background:none;border:none;font-size:12px;color:var(--pink-dark);cursor:pointer;font-family:'DM Sans',system-ui,sans-serif;font-weight:500">← New to Crumble? Create a vault instead</button>
+      <button onclick="skipVaultVerify()" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',system-ui,sans-serif">Use this device without syncing</button>
     </div>
   </div>
 </div>
@@ -902,7 +900,7 @@
         Set up my vault →
       </button>
       <div style="text-align:center;margin-top:10px">
-        <button onclick="closeModal('vault-modal')" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif">
+        <button onclick="closeModal('vault-modal')" style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',system-ui,sans-serif">
           Maybe later
         </button>
       </div>
@@ -1444,7 +1442,7 @@
       <div class="ingredient-row${ing.archived?' archived':''}">
         <div style="flex:1;min-width:140px">
           <div class="ing-name">${escHtml(ing.name)}${ing.archived?' <span class="tag" style="margin-left:4px">Archived</span>':''}</div>
-          <div class="ing-detail">${ing.store?`<span class="tag tag-green" style="margin-right:6px">${escHtml(ing.store)}</span>`:''} $${ing.price.toFixed(2)} for ${ing.qty}${ing.unit}${ing.countToGrams?` &middot; 1 count = ${ing.countToGrams}g`:''}</div>
+          <div class="ing-detail">${ing.store?`<span class="tag tag-green" style="margin-right:6px">${escHtml(ing.store)}</span>`:''}$${ing.price.toFixed(2)} for ${ing.qty}${ing.unit}${ing.countToGrams?` &middot; 1 count = ${ing.countToGrams}g`:''}</div>
         </div>
         <div class="ing-cost">${normalisedCostStr(ing)}</div>
         ${actions}
@@ -3699,7 +3697,7 @@
           </tr></thead>
           <tbody>${rows}</tbody>
           <tfoot>
-            <tr style="font-weight:600;border-top:1px solid var(--border)">
+            <tr style="font-weight:600">
               <td style="padding-top:10px">Total / serving</td>
               <td style="padding-top:10px;text-align:right;font-size:12px">${fmtG(totalA)}</td>
               <td style="padding-top:10px;text-align:right;font-size:12px">${fmtG(totalB)}</td>

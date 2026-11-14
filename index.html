@@ -56,6 +56,8 @@
     .tag-green { background:var(--green-light); color:var(--green-dark); }
     .ingredient-row { display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:0.5px solid var(--border); flex-wrap:wrap; }
     .ingredient-row:last-child { border-bottom:none; }
+    .ingredient-row.archived { opacity:0.6; }
+    .pantry-archived-toggle { background:none; border:none; color:var(--muted); font-size:12px; padding:10px 0 0; cursor:pointer; text-decoration:underline; }
     .ing-name { font-weight:500; font-size:14px; min-width:120px; }
     .ing-detail { font-size:12px; color:var(--muted); margin-top:2px; }
     .ing-cost { font-size:13px; color:var(--green-dark); font-weight:500; margin-left:auto; white-space:nowrap; }
@@ -262,6 +264,7 @@
         <input type="text" id="pantry-search" placeholder="Search ingredients…" style="width:100%" oninput="renderPantry()">
       </div>
       <div id="pantry-list"><div class="empty">No ingredients yet — add some above!</div></div>
+      <div id="pantry-archived-wrap"></div>
     </div>
   </div>
 
@@ -691,6 +694,21 @@
   </div>
 </div>
 
+<!-- ARCHIVE INGREDIENT MODAL -->
+<div class="modal-bg" id="archive-ing-modal">
+  <div class="modal">
+    <div class="modal-title">Archive ingredient</div>
+    <input type="hidden" id="archive-ing-id">
+    <p class="modal-subtitle" id="archive-ing-subtitle"></p>
+    <input type="text" id="archive-ing-search" placeholder="Search pantry…" style="width:100%;margin-bottom:8px" oninput="populateArchiveReplacementList()">
+    <div id="archive-ing-list" style="max-height:280px;overflow-y:auto;margin-bottom:4px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('archive-ing-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmArchiveIngredient()">Archive</button>
+    </div>
+  </div>
+</div>
+
 <!-- REVIEW PARSED MODAL -->
 <div class="modal-bg" id="review-modal">
   <div class="modal">
@@ -981,7 +999,8 @@
         name: ing.name, price: ing.price, qty: ing.qty,
         unit: ing.unit, store: ing.store || null,
         cost_per_unit: ing.costPerUnit,
-        count_to_grams: ing.countToGrams || null
+        count_to_grams: ing.countToGrams || null,
+        archived: ing.archived || false
       }));
       const { error } = await sb.from('pantry_items').upsert(rows);
       if (error) throw error;
@@ -1059,7 +1078,8 @@
       id: r.id, name: r.name, price: r.price,
       qty: r.qty, unit: r.unit, store: r.store || '',
       costPerUnit: r.cost_per_unit,
-      ...(r.count_to_grams ? {countToGrams: r.count_to_grams} : {})
+      ...(r.count_to_grams ? {countToGrams: r.count_to_grams} : {}),
+      ...(r.archived ? {archived: true} : {})
     }));
 
     state.recipes = (recipes || []).map(r => {
@@ -1409,32 +1429,140 @@
     return ing;
   }
 
-  function renderPantry(){
-    const list=document.getElementById('pantry-list');
-    const count=state.ingredients.length;
-    document.getElementById('pantry-count').textContent=count+' item'+(count!==1?'s':'');
-    if(!count){list.innerHTML='<div class="empty">No ingredients yet — add some above!</div>';return;}
+  let pantryShowArchived=false;
+  function activeIngredients(){ return state.ingredients.filter(ing=>!ing.archived); }
 
-    const query=(document.getElementById('pantry-search')?.value||'').trim().toLowerCase();
-    const sorted=[...state.ingredients].sort((a,b)=>a.name.localeCompare(b.name));
-    const filtered=query?sorted.filter(ing=>ing.name.toLowerCase().includes(query)||ing.store?.toLowerCase().includes(query)):sorted;
-
-    if(!filtered.length){
-      list.innerHTML='<div class="empty">No ingredients match your search.</div>';
-      return;
-    }
-
-    list.innerHTML=filtered.map(ing=>`
-      <div class="ingredient-row">
+  function pantryRowHtml(ing){
+    const actions = ing.archived
+      ? `<button class="btn btn-edit" onclick="unarchiveIngredient('${ing.id}')">Unarchive</button>
+        <button class="btn btn-danger" onclick="removeIngredientById('${ing.id}')">✕</button>`
+      : `<button class="btn btn-edit" onclick="openEditIngModalById('${ing.id}')">Edit</button>
+        <button class="btn btn-edit" onclick="openArchiveIngModal('${ing.id}')" title="Archive — hide from pantry and pick a replacement">Archive</button>
+        <button class="btn btn-danger" onclick="removeIngredientById('${ing.id}')">✕</button>
+        <button class="btn btn-edit" onclick="duplicateIngredient('${ing.id}')" title="Duplicate">⧉</button>`;
+    return `
+      <div class="ingredient-row${ing.archived?' archived':''}">
         <div style="flex:1;min-width:140px">
-          <div class="ing-name">${escHtml(ing.name)}</div>
+          <div class="ing-name">${escHtml(ing.name)}${ing.archived?' <span class="tag" style="margin-left:4px">Archived</span>':''}</div>
           <div class="ing-detail">${ing.store?`<span class="tag tag-green" style="margin-right:6px">${escHtml(ing.store)}</span>`:''} $${ing.price.toFixed(2)} for ${ing.qty}${ing.unit}${ing.countToGrams?` &middot; 1 count = ${ing.countToGrams}g`:''}</div>
         </div>
         <div class="ing-cost">${normalisedCostStr(ing)}</div>
-        <button class="btn btn-edit" onclick="openEditIngModalById('${ing.id}')">Edit</button>
-        <button class="btn btn-danger" onclick="removeIngredientById('${ing.id}')">✕</button>
-        <button class="btn btn-edit" onclick="duplicateIngredient('${ing.id}')" title="Duplicate">⧉</button>
-      </div>`).join('');
+        ${actions}
+      </div>`;
+  }
+
+  function togglePantryArchived(){ pantryShowArchived=!pantryShowArchived; renderPantry(); }
+
+  function renderPantry(){
+    const list=document.getElementById('pantry-list');
+    const wrap=document.getElementById('pantry-archived-wrap');
+    const active=activeIngredients();
+    const archived=state.ingredients.filter(ing=>ing.archived);
+    const count=active.length;
+    document.getElementById('pantry-count').textContent=count+' item'+(count!==1?'s':'');
+
+    const query=(document.getElementById('pantry-search')?.value||'').trim().toLowerCase();
+    const matches=ing=>!query||ing.name.toLowerCase().includes(query)||ing.store?.toLowerCase().includes(query);
+    const byName=(a,b)=>a.name.localeCompare(b.name);
+    const filtered=active.filter(matches).sort(byName);
+    const filteredArchived=archived.filter(matches).sort(byName);
+
+    if(!state.ingredients.length) list.innerHTML='<div class="empty">No ingredients yet — add some above!</div>';
+    else if(!filtered.length) list.innerHTML=`<div class="empty">${count?'No ingredients match your search.':'No active ingredients.'}</div>`;
+    else list.innerHTML=filtered.map(pantryRowHtml).join('');
+
+    if(!archived.length){ wrap.innerHTML=''; return; }
+    const label=pantryShowArchived?`Hide archived (${archived.length})`:`Show archived (${archived.length})`;
+    wrap.innerHTML=`<button class="pantry-archived-toggle" onclick="togglePantryArchived()">${label}</button>`+
+      (pantryShowArchived
+        ? (filteredArchived.length
+            ? `<div style="margin-top:6px">${filteredArchived.map(pantryRowHtml).join('')}</div>`
+            : '<div class="empty">No archived ingredients match your search.</div>')
+        : '');
+  }
+
+  function recipesUsingIngredient(id){
+    return state.recipes.filter(r=>r.ingredients.some(ri=>String(ri.ingId)===String(id)));
+  }
+
+  function openArchiveIngModal(id){
+    const ing=state.ingredients.find(x=>String(x.id)===String(id));
+    if(!ing) return;
+    const used=recipesUsingIngredient(id);
+    const label=`${escHtml(ing.name)}${ing.store?' ('+escHtml(ing.store)+')':''}`;
+    document.getElementById('archive-ing-id').value=ing.id;
+    document.getElementById('archive-ing-search').value='';
+    document.getElementById('archive-ing-subtitle').innerHTML = used.length
+      ? `<strong>${label}</strong> is used in ${used.length} recipe${used.length!==1?'s':''}: ${used.map(r=>escHtml(r.name)).join(', ')}. Pick a replacement to use in ${used.length!==1?'those recipes':'that recipe'} from now on.`
+      : `<strong>${label}</strong> isn't used in any recipes. Pick a replacement anyway, or archive it without one.`;
+    populateArchiveReplacementList(true);
+    openModal('archive-ing-modal');
+  }
+
+  function populateArchiveReplacementList(autoSelect){
+    const id=document.getElementById('archive-ing-id').value;
+    const ing=state.ingredients.find(x=>String(x.id)===String(id));
+    if(!ing) return;
+    const listEl=document.getElementById('archive-ing-list');
+    const prev=listEl.querySelector('input[name="archive-ing-pick"]:checked')?.value;
+    const q=document.getElementById('archive-ing-search').value.toLowerCase().trim();
+    const name=ing.name.toLowerCase();
+    // Rank: same name first, then similar names, then everything else alphabetically
+    const rank=p=>{ const n=p.name.toLowerCase(); return n===name?0:(n.includes(name)||name.includes(n))?1:2; };
+    const candidates=activeIngredients()
+      .filter(p=>String(p.id)!==String(id))
+      .filter(p=>!q||p.name.toLowerCase().includes(q)||(p.store||'').toLowerCase().includes(q))
+      .sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name));
+    const selected = autoSelect
+      ? (candidates.length && rank(candidates[0])<2 ? String(candidates[0].id) : '')
+      : (prev ?? '');
+    const option=(value,nameHtml,detail)=>`
+      <label class="link-option">
+        <input type="radio" name="archive-ing-pick" value="${value}" ${selected===value?'checked':''}>
+        <div>
+          <div class="link-option-name">${nameHtml}</div>
+          <div class="link-option-detail">${detail}</div>
+        </div>
+      </label>`;
+    listEl.innerHTML =
+      option('', 'No replacement', 'Recipes keep using the archived item') +
+      (candidates.length
+        ? candidates.map(p=>option(String(p.id),
+            `${escHtml(p.name)}${p.store?'<span class="link-option-store"> &middot; '+escHtml(p.store)+'</span>':''}`,
+            normalisedCostStr(p))).join('')
+        : '<div class="empty" style="padding:0.5rem 0">No matches.</div>');
+  }
+
+  function confirmArchiveIngredient(){
+    const id=document.getElementById('archive-ing-id').value;
+    const ing=state.ingredients.find(x=>String(x.id)===String(id));
+    if(!ing) return;
+    const replacementId=document.querySelector('input[name="archive-ing-pick"]:checked')?.value||'';
+    const replacement=replacementId?state.ingredients.find(x=>String(x.id)===replacementId):null;
+    let swapped=0;
+    if(replacement){
+      state.recipes.forEach(r=>r.ingredients.forEach(ri=>{
+        if(String(ri.ingId)!==String(id)) return;
+        // Pin the row's identity so section membership (keyed by _localId || ingId) survives the swap
+        if(!ri._localId) ri._localId=String(ri.ingId);
+        ri.ingId=replacement.id;
+        swapped++;
+      }));
+    }
+    ing.archived=true;
+    save(); closeModal('archive-ing-modal'); renderPantry();
+    if(state.activeRecipeId) renderRecipeDetail();
+    showToast(replacement
+      ? `Archived "${ing.name}" — ${swapped} recipe ingredient${swapped!==1?'s':''} now use ${replacement.name}${replacement.store?' ('+replacement.store+')':''}`
+      : `Archived "${ing.name}"`, 5000);
+  }
+
+  function unarchiveIngredient(id){
+    const ing=state.ingredients.find(x=>String(x.id)===String(id));
+    if(!ing) return;
+    delete ing.archived;
+    save(); renderPantry();
+    showToast(`Restored "${ing.name}" to your pantry`);
   }
 
   function removeIngredientById(id){
@@ -1559,7 +1687,7 @@
 
   function findPantryMatch(name){
     const n=name.toLowerCase();
-    return state.ingredients.find(ing=>ing.name.toLowerCase()===n||ing.name.toLowerCase().includes(n)||n.includes(ing.name.toLowerCase()));
+    return activeIngredients().find(ing=>ing.name.toLowerCase()===n||ing.name.toLowerCase().includes(n)||n.includes(ing.name.toLowerCase()));
   }
 
   let _pendingMatched=[],_pendingMissing=[];
@@ -1584,7 +1712,7 @@
     document.getElementById('review-subtitle').textContent=
       `${total} ingredient${total!==1?'s':''} parsed. Edit any fields, uncheck any to skip.`;
     const unitOpts=['g','kg','oz','lb','ml','L','tsp','tbsp','cup','count','as needed'].map(u=>`<option value="${u}">${u}</option>`).join('');
-    const sortedPantry=[...state.ingredients].sort((a,b)=>a.name.localeCompare(b.name));
+    const sortedPantry=[...activeIngredients()].sort((a,b)=>a.name.localeCompare(b.name));
     const pantryOpts=sortedPantry.map(p=>`<option value="${p.id}">${escHtml(p.name)}${p.store?' · '+escHtml(p.store):''}</option>`).join('');
     document.getElementById('review-list').innerHTML=parsed.map((p,i)=>{
       const match=findPantryMatch(p.name);
@@ -2815,12 +2943,12 @@
 
   function populateRiLinkList(ri, ghostName, query){
     const linkList=document.getElementById('ri-link-list');
-    if(!state.ingredients.length){
+    if(!activeIngredients().length){
       linkList.innerHTML='<div class="empty" style="padding:0.5rem 0">No pantry entries yet — add one with the button below.</div>';
       return;
     }
     const q=(query||'').toLowerCase().trim();
-    const sorted=[...state.ingredients].sort((a,b)=>a.name.localeCompare(b.name));
+    const sorted=[...activeIngredients()].sort((a,b)=>a.name.localeCompare(b.name));
     const filtered=q?sorted.filter(p=>p.name.toLowerCase().includes(q)||(p.store||'').toLowerCase().includes(q)):sorted;
     if(!filtered.length){
       linkList.innerHTML='<div class="empty" style="padding:0.5rem 0">No matches.</div>';
